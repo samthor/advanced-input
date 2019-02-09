@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+
+body {
+  padding: 0;
+}
+
+.holder {
+  background: #eee;
+  display: flex;
+  justify-content: stretch;
+  position: relative;
+
+  width: 200px;
+  font-family: 'Lato', 'Roboto', sans-serif;
+  font-size: 30px;
+  line-height: 56px;
+
+  flex-wrap: wrap;
+  overflow: hidden;
+}
+
+.holder input {
+  display: block;
+  width: auto;
+  font: inherit;
+  flex-grow: 1;
+  background: transparent;
+  border: none;
+  text-indent: 12px;
+  padding: 0;
+  z-index: 1;
+
+  width: inherit;
+}
+.holder input:focus {
+  outline: none;
+}
+.holder .focus {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0;
+  border: 2px solid red;
+  z-index: 2;
+  pointer-events: none;
+}
+.holder input:focus ~ .focus {
+  opacity: 1;
+}
+
+.holder .render {
+  background: #fff;
+  padding-left: 12px;
+  white-space: pre;
+  will-change: transform;
+}
+
+  </style>
+</head>
+<body>
+
+<script type="module">
+
+  const holder = document.createElement('div');
+  holder.className = 'holder';
+  document.body.appendChild(holder);
+
+  const input = document.createElement('input');
+  holder.appendChild(input);
+  input.value = 'This is a very 🍻 long string for testing that contains stuff and emoji.';
+
+  const focus = document.createElement('div');
+  focus.className = 'focus';
+  holder.appendChild(focus);
+
+  const target = document.createElement('div');
+  target.className = 'render';
+  holder.appendChild(target);
+
+  import {upgrade} from './main.js';
+  input.setSelectionRange(0, 0);  // nb. causes Safari to focus input
+  upgrade(input, target);
+
+</script>
+
+<button>Test focusable</button>
+<input type="text" placeholder="Ignore me" autofocus />
+
+
+</body>
