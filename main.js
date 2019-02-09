@@ -13,9 +13,6 @@ import * as util from './util.js';
  *   3. Viewport events. e.g., `scroll`: to align preview
  */
 
-const dedupEvents =
-    'change keydown keypress click mousedown touchstart select input blur focus scroll';
-
 export const upgrade = (input, target) => {
   const state = {
     scrollLeft: input.scrollLeft,
@@ -52,13 +49,28 @@ export const upgrade = (input, target) => {
   const contentEvents = 'change keydown keypress input value';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     target.textContent = input.value;
-    console.info('got hint', events, input.value);
 
+    // retain in case the element is blurred
     state.selectionStart = input.selectionStart;
     state.selectionEnd = input.selectionEnd;
     state.selectionDirection = input.selectionDirection;
 
+    if (state.selectionEnd > state.selectionStart) {
+      const value = input.value.substring(state.selectionStart, state.selectionEnd);
+      input.setAttribute('data-value', value);
+    } else {
+      input.removeAttribute('data-value');
+    }
+
+    // input might cause viewport to change
     viewportChangeHint();
+  });
+
+  // Also fired on others, but Chrome mobile needs `selectionchange` to handle a long-press select.
+  document.addEventListener('selectionchange', (ev) => {
+    if (document.activeElement === input) {
+      contentChangeHint('selectionchange');
+    }
   });
 
   const focusEvents = 'click mousedown touchstart select blur focus';
@@ -75,13 +87,6 @@ export const upgrade = (input, target) => {
     } else {
       // TODO(samthor): work out if 'click' or 'select' were useful?
       console.info('got useless', events);
-    }
-  });
-
-  // Chrome mobile needs `selectionchange` to handle a long-press select.
-  document.addEventListener('selectionchange', (ev) => {
-    if (document.activeElement === input) {
-      contentChangeHint('selectionchange');
     }
   });
 };
