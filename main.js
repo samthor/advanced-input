@@ -24,15 +24,15 @@ export const event = Object.seal({
   * @param {string} text 
   * @param {!Array<{object, start, length}>} annotations 
   */
-const render = (target, text, annotations) => {
+const render = (render, text, annotations) => {
   let at = 0;
-  target.textContent = '';
+  render.textContent = '';
 
   for (const annot of annotations) {
     // insert text before this, unless there is none
     if (annot.start > at) {
       const node = document.createTextNode(text.substring(at, annot.start));
-      target.appendChild(node);
+      render.appendChild(node);
       at = annot.start;
     }
 
@@ -40,18 +40,18 @@ const render = (target, text, annotations) => {
     el.className = 'selected';  // TODO
     el.textContent = text.substr(annot.start, annot.length);
     console.info('making annot', el.textContent, annot);
-    target.appendChild(el);
+    render.appendChild(el);
   }
 
   // add trailer
   if (at < text.length) {
     const node = document.createTextNode(text.substr(at));
-    target.appendChild(node);
+    render.appendChild(node);
   }
 };
 
 
-export const upgrade = (input, target) => {
+export const upgrade = (input, render) => {
   const state = {
     scrollLeft: input.scrollLeft,
     selectionStart: input.selectionStart,
@@ -70,9 +70,9 @@ export const upgrade = (input, target) => {
       state.scrollLeft = input.scrollLeft;
 
       const style = `translate(${-input.scrollLeft}px)`;
-      if (style !== target.style.transform) {
+      if (style !== render.style.transform) {
         framesOk = 0;
-        target.style.transform = style;
+        render.style.transform = style;
         return true;
       }
       return ++framesOk < checkForFrames;
@@ -90,7 +90,7 @@ export const upgrade = (input, target) => {
   const contentEvents = 'change keydown keypress input value';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     const trim = input.value.replace(/\s+$/, '');
-    target.textContent = trim;
+    render.textContent = trim;
 
     const annotations = [
       {
@@ -109,10 +109,10 @@ export const upgrade = (input, target) => {
       span.textContent = trim.substr(start, length);
       align.appendChild(span);
 
-      target.insertBefore(align, target.firstChild);
+      render.insertBefore(align, render.firstChild);
     });
 
-    target.appendChild(autocompleteEl);
+    render.appendChild(autocompleteEl);
     const cand = 'butt';
     autocompleteEl.textContent = cand;
 
@@ -197,4 +197,5 @@ export const upgrade = (input, target) => {
       input.dispatchEvent(new CustomEvent(event.space, {detail: true}));
     }
   });
+
 };
