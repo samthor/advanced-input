@@ -5,6 +5,12 @@
 
 import * as util from './util.js';
 
+
+export const event = Object.seal({
+  space: '_space',
+  nav: '_nav',
+});
+
 /*
  * This looks for three classes of events:
  *
@@ -13,6 +19,38 @@ import * as util from './util.js';
  *   3. Viewport events. e.g., `scroll`: to align preview
  */
 
+ /**
+  * @param {!HTMLElement} el
+  * @param {string} text 
+  * @param {!Array<{object, start, length}>} annotations 
+  */
+const render = (target, text, annotations) => {
+  let at = 0;
+  target.textContent = '';
+
+  for (const annot of annotations) {
+    // insert text before this, unless there is none
+    if (annot.start > at) {
+      const node = document.createTextNode(text.substring(at, annot.start));
+      target.appendChild(node);
+      at = annot.start;
+    }
+
+    const el = document.createElement('span');
+    el.className = 'selected';  // TODO
+    el.textContent = text.substr(annot.start, annot.length);
+    console.info('making annot', el.textContent, annot);
+    target.appendChild(el);
+  }
+
+  // add trailer
+  if (at < text.length) {
+    const node = document.createTextNode(text.substr(at));
+    target.appendChild(node);
+  }
+};
+
+
 export const upgrade = (input, target) => {
   const state = {
     scrollLeft: input.scrollLeft,
@@ -20,6 +58,9 @@ export const upgrade = (input, target) => {
     selectionEnd: input.selectionEnd,
     selectionDirection: input.selectionDirection,
   };
+
+  const autocompleteEl = document.createElement('span');
+  autocompleteEl.className = 'autocomplete';
 
   const viewportChangeHint = (() => {
     let framesOk = 0;
@@ -48,7 +89,40 @@ export const upgrade = (input, target) => {
 
   const contentEvents = 'change keydown keypress input value';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
-    target.textContent = input.value;
+    const trim = input.value.replace(/\s+$/, '');
+    target.textContent = trim;
+
+    const annotations = [
+      {
+        start: input.selectionStart,
+        length: input.selectionEnd - input.selectionStart,
+        object: null,
+      },
+    ];
+    annotations.forEach(({start, length}) => {
+      const align = document.createElement('div');
+      align.className = '_align';
+      align.textContent = trim.substr(0, start);
+
+      const span = document.createElement('span');
+      span.className = 'selected';  // ??
+      span.textContent = trim.substr(start, length);
+      align.appendChild(span);
+
+      target.insertBefore(align, target.firstChild);
+    });
+
+    target.appendChild(autocompleteEl);
+    const cand = 'butt';
+    autocompleteEl.textContent = cand;
+
+    for (let i = 0; i < cand.length; ++i) {
+      const test = cand.substr(0, cand.length - i);
+      if (trim.endsWith(test)) {
+        autocompleteEl.textContent = cand.substr(cand.length - i);
+        break;
+      }
+    }
 
     // retain in case the element is blurred
     state.selectionStart = input.selectionStart;
@@ -87,6 +161,40 @@ export const upgrade = (input, target) => {
     } else {
       // TODO(samthor): work out if 'click' or 'select' were useful?
       console.info('got useless', events);
+    }
+  });
+
+  // Non-deduped keydown handler, for intercepting space and others.
+  input.addEventListener('keydown', (ev) => {
+    let dir = +1;
+
+    switch (ev.key) {
+    case 'ArrowUp':
+    case 'Up':
+      dir = -1;
+      // fall-through
+
+    case 'ArrowDown':
+    case 'Down':
+      const ce = new CustomEvent(event.nav, {detail: dir, cancelable: true});
+      input.dispatchEvent(ce);
+      if (ce.defaultPrevented) {
+        ev.preventDefault();  // disable normal up/down behavior to change focus
+      }
+      break;
+
+    case ' ':
+      input.dispatchEvent(new CustomEvent(event.space, {detail: false}));
+      break;
+    }
+  });
+
+  // Non-deduped keyup handler, for space on mobile browsers ('dreaded keycode 229').
+  input.addEventListener('keyup', (ev) => {
+    // was it a 229 or no code, and was the typed character a space?
+    if (ev.keyCode === 229 || !ev.keyCode) {
+      // TODO: possibly record hasPendingSpace for future arriving suggestions
+      input.dispatchEvent(new CustomEvent(event.space, {detail: true}));
     }
   });
 };

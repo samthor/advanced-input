@@ -13,11 +13,14 @@ body {
   display: flex;
   justify-content: stretch;
   position: relative;
+  padding: 2px;
 
   width: 200px;
   font-family: 'Lato', 'Roboto', sans-serif;
   font-size: 30px;
   line-height: 56px;
+  padding-right: 16px;
+  font-variant-ligatures: none;
 
   flex-wrap: wrap;
   overflow: hidden;
@@ -33,9 +36,9 @@ body {
   text-indent: 12px;
   padding: 0;
   z-index: 1;
-
   width: inherit;
 }
+
 .holder input:focus {
   outline: none;
 }
@@ -59,6 +62,34 @@ body {
   padding-left: 12px;
   white-space: pre;
   will-change: transform;
+  pointer-events: none;
+  user-select: none;
+}
+
+.holder .render .autocomplete {
+  opacity: 0.5;
+}
+
+.holder ._align {
+  position: absolute;
+  z-index: -1;
+  visibility: hidden;
+}
+
+.holder ._align > span {
+  box-sizing: border-box;
+  visibility: visible;
+}
+
+.holder ._align > span.selected:not(:empty) {
+  background: #ccc;
+  margin: -2px -1px;
+  padding: 2px 1px;
+  border-radius: 2px;
+  opacity: 0.7;
+  top: 12px;
+  bottom: 12px;
+  color: transparent;
 }
 
   </style>
@@ -83,13 +114,25 @@ body {
   target.className = 'render';
   holder.appendChild(target);
 
-  import {upgrade} from './main.js';
+  import * as main from './main.js';
   input.setSelectionRange(0, 0);  // nb. causes Safari to focus input
-  upgrade(input, target);
+  main.upgrade(input, target);
+
+  input.addEventListener(main.event.space, (ev) => {
+    console.info('got space autocomplete', ev.detail);
+  });
+  input.addEventListener(main.event.nav, (ev) => {
+    console.info('got nav', ev.detail);
+    ev.preventDefault();
+  });
+
+  document.getElementById('select_all').addEventListener('click', (ev) => {
+    input.setSelectionRange(0, input.value.length);
+  });
 
 </script>
 
-<button>Test focusable</button>
+<button id="select_all">Test focusable</button>
 <input type="text" placeholder="Ignore me" autofocus />
 
 
