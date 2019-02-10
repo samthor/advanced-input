@@ -116,7 +116,7 @@ body {
 
   import * as main from './main.js';
   input.setSelectionRange(0, 0);  // nb. causes Safari to focus input
-  main.upgrade(input, target);
+  const controller = main.upgrade(input, target);
 
   input.addEventListener(main.event.space, (ev) => {
     console.info('got space autocomplete', ev.detail);
@@ -127,13 +127,15 @@ body {
   });
 
   document.getElementById('select_all').addEventListener('click', (ev) => {
-    input.setSelectionRange(0, input.value.length);
+    const word = document.getElementById('content').value;
+    //    input.setSelectionRange(0, input.value.length);
+    controller.replace(word, {start: 0, end: 2});
   });
 
 </script>
 
 <button id="select_all">Test focusable</button>
-<input type="text" placeholder="Ignore me" autofocus />
+<input type="text" id="content" placeholder="Ignore me" autofocus />
 
 
 </body>

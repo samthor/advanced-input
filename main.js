@@ -51,6 +51,16 @@ const render = (render, text, annotations) => {
 };
 
 
+const drift = (low, high, text, where) => {
+  if (where >= high) {
+    where = where - (high - low) + text.length;  // after
+  } else if (where > low) {
+    where = low + text.length;  // during
+  }
+  return where;
+};
+
+
 export const upgrade = (input, render) => {
   const state = {
     scrollLeft: input.scrollLeft,
@@ -89,6 +99,7 @@ export const upgrade = (input, render) => {
 
   const contentEvents = 'change keydown keypress input value';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
+    console.debug('got change', events, input.value);
     const trim = input.value.replace(/\s+$/, '');
     render.textContent = trim;
 
@@ -149,15 +160,17 @@ export const upgrade = (input, render) => {
 
   const focusEvents = 'click mousedown touchstart select blur focus';
   const focusChangeHint = util.dedup(input, focusEvents, (events) => {
-    // Browsers reset scrollLeft when we navigate away from the input, but we can just tell it to
-    // go back to what it was.
-    if (events.has('blur')) {
-      input.scrollLeft = state.scrollLeft;
-    } else if (events.has('mousedown') || events.has('touchstart')) {
-      // do nothing: user clicked to select
+    if (events.has('mousedown') || events.has('touchstart')) {
+      // Do nothing, the user has clicked or tapped to select on the input. Respect the selection
+      // and scrollLeft of the user.
+      // TODO(samthor): could retain selection by calling .setSelectionRange
     } else if (events.has('focus')) {
+      // Focus has occured (not because of mouse), reset last known selection and scroll.
       input.setSelectionRange(state.selectionStart, state.selectionEnd, state.selectionDirection);
       input.scrollLeft = state.scrollLeft;  // Safari also reset on focus
+    } else if (events.has('blur')) {
+      // nb. when we blur, the selectionStart/selectionEnd is lost
+      input.scrollLeft = state.scrollLeft;
     } else {
       // TODO(samthor): work out if 'click' or 'select' were useful?
       console.info('got useless', events);
@@ -198,4 +211,36 @@ export const upgrade = (input, render) => {
     }
   });
 
+  const replace = (text, target) => {
+    if (target === null) {
+      target = {start: input.selectionStart, end: input.selectionEnd};
+    }
+    const prevFocus = document.activeElement;
+
+    input.focus();
+    input.setSelectionRange(target.start, target.end);
+    console.info('input range before change', input.selectionStart, input.selectionEnd);
+
+    const expected = input.value.substr(0, target.start) + text + input.value.substr(target.end);
+    if (!document.execCommand('insertText', false, text) || input.value !== expected) {
+      input.value = expected;  // execCommand isn't supported
+      input.dispatchEvent(new CustomEvent('change'));
+    } else {
+      // execCommand generates 'input' event
+    }
+
+    const localDrift = drift.bind(null, target.start, target.end, text);
+    state.selectionStart = localDrift(state.selectionStart);
+    state.selectionEnd = localDrift(state.selectionEnd);
+    console.info('input range after change', input.selectionStart, input.selectionEnd, 'vs state', state);
+
+    if (prevFocus && prevFocus !== input) {
+      // FIXME: this clears selection on input?
+      prevFocus.focus();
+    }
+  };
+
+  return {
+    replace,
+  };
 };
