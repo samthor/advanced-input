@@ -115,7 +115,7 @@ export const upgrade = (input, render) => {
     forceChange = false;
 
     // retain in case the element is blurred
-    state.selectionStart = input.selectionEnd;
+    state.selectionStart = input.selectionStart;
     state.selectionEnd = input.selectionEnd;
     state.selectionDirection = input.selectionDirection;
     state.value = input.value;

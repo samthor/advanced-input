@@ -16,7 +16,7 @@ body {
   position: relative;
   padding: 2px;
 
-  width: 40%;
+  width: 200px;
   font-family: 'Lato', 'Roboto', sans-serif;
   font-size: 30px;
   line-height: 56px;
@@ -127,7 +127,7 @@ body {
     ev.preventDefault();
   });
   input.addEventListener('select', (ev) => {
-    console.info('got select', ev.detail, ev);
+    console.info('got select', input.value.substring(input.selectionStart, input.selectionEnd), input.selectionStart);
     ev.preventDefault();
   });
 
