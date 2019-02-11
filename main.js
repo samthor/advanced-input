@@ -92,12 +92,7 @@ export const upgrade = (input, render) => {
   // Handle left/right scroll on input.
   input.addEventListener('wheel', viewportChangeHint, {passive: true});
 
-  // If a user is click or touch-dragging, this is changing the input selection and scroll.
-  const drag = util.drag(viewportChangeHint);
-  input.addEventListener('mousedown', drag);
-  input.addEventListener('touchstart', drag);
-
-  const contentEvents = 'change keydown keypress input value';
+  const contentEvents = 'change keydown keypress input value select';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     console.debug('got change', events, input.value);
     const trim = input.value.replace(/\s+$/, '');
@@ -151,14 +146,24 @@ export const upgrade = (input, render) => {
     viewportChangeHint();
   });
 
-  // Also fired on others, but Chrome mobile needs `selectionchange` to handle a long-press select.
+  // If a user is click or touch-dragging, this is changing the input selection and scroll.
+  // Chrome and Safari generate 'selectionchange' events for selection within an <input>, and have
+  // a (useless but exists) handler on the input itself. Firefox does not, so we have to listen to
+  // drag events in case it's a selection change.
+  const dragHelper = 'onselectionchange' in input ? viewportChangeHint : contentChangeHint;
+  const drag = util.drag(dragHelper);
+  input.addEventListener('mousedown', drag);
+  input.addEventListener('touchstart', drag);
+
+  // Fired only on Chrome/Safari (as of Firefox 45, it's behind a flag). Long-press select on
+  // mobile doesn't generate "select".
   document.addEventListener('selectionchange', (ev) => {
     if (document.activeElement === input) {
       contentChangeHint('selectionchange');
     }
   });
 
-  const focusEvents = 'click mousedown touchstart select blur focus';
+  const focusEvents = 'click mousedown touchstart blur focus';
   const focusChangeHint = util.dedup(input, focusEvents, (events) => {
     if (events.has('mousedown') || events.has('touchstart')) {
       // Do nothing, the user has clicked or tapped to select on the input. Respect the selection
