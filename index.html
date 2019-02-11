@@ -16,7 +16,7 @@ body {
   position: relative;
   padding: 2px;
 
-  width: 200px;
+  width: 40%;
   font-family: 'Lato', 'Roboto', sans-serif;
   font-size: 30px;
   line-height: 56px;
@@ -126,17 +126,26 @@ body {
     console.info('got nav', ev.detail);
     ev.preventDefault();
   });
+  input.addEventListener('select', (ev) => {
+    console.info('got select', ev.detail, ev);
+    ev.preventDefault();
+  });
 
-  document.getElementById('select_all').addEventListener('click', (ev) => {
+  document.getElementById('update').addEventListener('click', (ev) => {
     const word = document.getElementById('content').value;
-    //    input.setSelectionRange(0, input.value.length);
-    controller.replace(word, {start: 0, end: 2});
+    controller.replace(word, {start: 1, end: 2});
+  });
+
+  document.getElementById('select-all').addEventListener('click', (ev) => {
+    // TODO(samthor): This is just ignored/reset by Chrome.
+    input.setSelectionRange(0, input.value.length);
   });
 
 </script>
 
-<button id="select_all">Test focusable</button>
-<input type="text" id="content" placeholder="Ignore me" autofocus />
+<button id="select-all">Select all</button>
+<button id="update">Write text</button>
+<input type="text" id="content" placeholder="Text to write" autofocus />
 
 <p>Misc test that could be selected</p>
 

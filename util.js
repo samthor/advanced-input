@@ -12,6 +12,9 @@ export const dedup = (target, events, handler) => {
   const seenEvents = new Set();
   let frame = 0;
   const eventHandler = (ev) => {
+    if (ev instanceof CustomEvent) {
+      return;  // ignore our own events
+    }
     if (!frame) {
       seenEvents.clear();
       frame = window.requestAnimationFrame(() => {
@@ -32,9 +35,14 @@ export const dedup = (target, events, handler) => {
 };
 
 
+// Preferrably use 'buttons', but not available in IE11?
+const buttonHeld =
+    ('buttons' in MouseEvent.prototype ? (ev) => ev.buttons : (ev) => ev.which);
+
+
 export const drag = (fn) => {
   const endHandler = (ev) => {
-    if (ev.type === 'mousemove' && ev.which) {
+    if (ev.type === 'mousemove' && buttonHeld(ev)) {
       fn();  // only for mousemove event
     } else {
       document.removeEventListener('mousemove', endHandler);
@@ -85,3 +93,26 @@ export const checker = (fn) => {
     }
   };
 };
+
+
+export class EventController {
+  constructor(enabled = true) {
+    this._all = [];
+    this._enabled = true;
+  }
+
+  add(target, type, fn) {
+    this._all.push({target, type, fn});
+    if (this._enabled) {
+      target.addEventListener(type, fn);
+    }
+  }
+
+  enable() {
+    this._all.forEach(({target, type, fn}) => target.addEventListener(type, fn));
+  }
+
+  disable() {
+    this._all.forEach(({target, type, fn}) => target.removeEventListener(type, fn));
+  }
+}

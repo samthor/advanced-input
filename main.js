@@ -69,6 +69,8 @@ export const upgrade = (input, render) => {
     selectionDirection: input.selectionDirection,
     value: input.value,
   };
+  const events = new util.EventController();
+  let forceChange = true;
 
   const autocompleteEl = document.createElement('span');
   autocompleteEl.className = 'autocomplete';
@@ -90,19 +92,30 @@ export const upgrade = (input, render) => {
     });
   })();
 
+  if ('ResizeObserver' in self) {
+    const ro = new ResizeObserver(viewportChangeHint);
+    ro.observe(input);
+  } else {
+    events.add(window, 'resize', (ev) => viewportChangeHint());
+  }
+
   // Handle left/right scroll on input.
   input.addEventListener('wheel', viewportChangeHint, {passive: true});
 
   const contentEvents = 'change keydown keypress input value select';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
-    if (state.selectionStart === input.selectionStart &&
+    viewportChangeHint();  // most things cause viewport to change
+
+    if (!forceChange &&
+        state.selectionStart === input.selectionStart &&
         state.selectionEnd === input.selectionEnd &&
         state.value === input.value) {
       return;  // no change
     }
+    forceChange = false;
 
     // retain in case the element is blurred
-    state.selectionStart = input.selectionStart;
+    state.selectionStart = input.selectionEnd;
     state.selectionEnd = input.selectionEnd;
     state.selectionDirection = input.selectionDirection;
     state.value = input.value;
@@ -113,6 +126,9 @@ export const upgrade = (input, render) => {
       input.setAttribute('data-selection', value);
     } else {
       input.removeAttribute('data-selection');
+    }
+    if (!events.has('select')) {
+      input.dispatchEvent(new CustomEvent('select'));
     }
 
     const trim = state.value.replace(/\s+$/, '');
@@ -149,9 +165,6 @@ export const upgrade = (input, render) => {
         break;
       }
     }
-
-    // input might cause viewport to change
-    viewportChangeHint();
   });
 
   // If a user is click or touch-dragging, this is changing the input selection and scroll.
@@ -171,7 +184,7 @@ export const upgrade = (input, render) => {
 
   // Fired only on Chrome/Safari (as of Firefox 45, it's behind a flag). Long-press select on
   // mobile doesn't generate "select".
-  document.addEventListener('selectionchange', (ev) => {
+  events.add(document, 'selectionchange', (ev) => {
     if (document.activeElement === input) {
       contentChangeHint('selectionchange');
     }
@@ -251,11 +264,11 @@ export const upgrade = (input, render) => {
     state.selectionEnd = localDrift(state.selectionEnd);
 
     if (prevFocus && prevFocus !== input) {
-      // FIXME: this clears selection on input?
       prevFocus.focus();
     }
   };
 
+  contentChangeHint();
   return {
     replace,
   };
