@@ -32,52 +32,27 @@ export const dedup = (target, events, handler) => {
 };
 
 
-/**
- * @param {function(): void} fn to run while mouse held 
- * @return {function(): void} to kick off on mousedown
- */
-const mousedown = (fn) => {
-  const handler = (ev) => {
-    if (!ev.which) {
-      document.removeEventListener('mousemove', handler);
+export const drag = (fn) => {
+  const endHandler = (ev) => {
+    if (ev.type === 'mousemove' && ev.which) {
+      fn();  // only for mousemove event
     } else {
-      fn();
+      document.removeEventListener('mousemove', endHandler);
+      document.removeEventListener('touchend', endHandler);
+      document.removeEventListener('touchmove', touchmoveHandler);
     }
   };
-
-  return () => {
-    document.addEventListener('mousemove', handler);
-  };
-};
-
-const touchstart = (fn) => {
-  const endHandler = (ev) => {
-    // TODO(samthor): What if there was multiple touches? Just testing in emulator.
-    document.removeEventListener('touchend', endHandler);
-    document.removeEventListener('touchmove', moveHandler);
-  };
-  const moveHandler = (ev) => fn();
-
-  return () => {
-    document.addEventListener('touchend', endHandler);
-    document.addEventListener('touchmove', moveHandler);
-  };
-}
-
-export const drag = (fn) => {
-  // TODO(samthor): This conceptually is the same thing but is really just two handlers
-  // under the hood. Is there any benefit to unioning? Pointer Events?
-  const mouse = mousedown(fn);
-  const touch = touchstart(fn);
+  const touchmoveHandler = (ev) => fn();
 
   return (ev) => {
-    const start = ev.type.substr(0, 5);
-    if (start === 'mouse') {
-      return mouse();
-    } else if (start === 'touch') {
-      return touch();
+    if (ev.type === 'mousedown') {
+      document.addEventListener('mousemove', endHandler);
+    } else if (ev.type === 'touchstart') {
+      document.addEventListener('touchend', endHandler);
+      document.addEventListener('touchmove', touchmoveHandler);
+    } else {
+      throw new Error('bad event type: ' + ev.type);
     }
-    throw new Error('bad event type: ' + ev.type);
   };
 };
 

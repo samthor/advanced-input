@@ -14,7 +14,7 @@ export const event = Object.seal({
 /*
  * This looks for three classes of events:
  *
- *   1. Change events. e.g., `change`, `keydown`: to rerender text
+ *   1. Change events. e.g., `change`, `keydown`: to rerender text (including selection)
  *   2. Focus events. e.g., `focus`, `mousedown`: to fix scroll left, announce cursor
  *   3. Viewport events. e.g., `scroll`: to align preview
  */
@@ -67,6 +67,7 @@ export const upgrade = (input, render) => {
     selectionStart: input.selectionStart,
     selectionEnd: input.selectionEnd,
     selectionDirection: input.selectionDirection,
+    value: input.value,
   };
 
   const autocompleteEl = document.createElement('span');
@@ -94,8 +95,27 @@ export const upgrade = (input, render) => {
 
   const contentEvents = 'change keydown keypress input value select';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
-    console.debug('got change', events, input.value);
-    const trim = input.value.replace(/\s+$/, '');
+    if (state.selectionStart === input.selectionStart &&
+        state.selectionEnd === input.selectionEnd &&
+        state.value === input.value) {
+      return;  // no change
+    }
+
+    // retain in case the element is blurred
+    state.selectionStart = input.selectionStart;
+    state.selectionEnd = input.selectionEnd;
+    state.selectionDirection = input.selectionDirection;
+    state.value = input.value;
+
+    // write `data-selection` to element
+    if (state.selectionEnd > state.selectionStart) {
+      const value = state.value.substring(state.selectionStart, state.selectionEnd);
+      input.setAttribute('data-selection', value);
+    } else {
+      input.removeAttribute('data-selection');
+    }
+
+    const trim = state.value.replace(/\s+$/, '');
     render.textContent = trim;
 
     const annotations = [
@@ -130,18 +150,6 @@ export const upgrade = (input, render) => {
       }
     }
 
-    // retain in case the element is blurred
-    state.selectionStart = input.selectionStart;
-    state.selectionEnd = input.selectionEnd;
-    state.selectionDirection = input.selectionDirection;
-
-    if (state.selectionEnd > state.selectionStart) {
-      const value = input.value.substring(state.selectionStart, state.selectionEnd);
-      input.setAttribute('data-value', value);
-    } else {
-      input.removeAttribute('data-value');
-    }
-
     // input might cause viewport to change
     viewportChangeHint();
   });
@@ -150,10 +158,16 @@ export const upgrade = (input, render) => {
   // Chrome and Safari generate 'selectionchange' events for selection within an <input>, and have
   // a (useless but exists) handler on the input itself. Firefox does not, so we have to listen to
   // drag events in case it's a selection change.
-  const dragHelper = 'onselectionchange' in input ? viewportChangeHint : contentChangeHint;
+  const hasSelectionChange = 'onselectionchange' in input;
+  const dragHelper = hasSelectionChange ? viewportChangeHint : contentChangeHint;
   const drag = util.drag(dragHelper);
   input.addEventListener('mousedown', drag);
   input.addEventListener('touchstart', drag);
+
+  // Without 'selectionchange', a click event is a way of changing the selection.
+  if (!hasSelectionChange) {
+    input.addEventListener('click', (ev) => contentChangeHint('click'));
+  }
 
   // Fired only on Chrome/Safari (as of Firefox 45, it's behind a flag). Long-press select on
   // mobile doesn't generate "select".
@@ -163,7 +177,7 @@ export const upgrade = (input, render) => {
     }
   });
 
-  const focusEvents = 'click mousedown touchstart blur focus';
+  const focusEvents = 'mousedown touchstart blur focus';
   const focusChangeHint = util.dedup(input, focusEvents, (events) => {
     if (events.has('mousedown') || events.has('touchstart')) {
       // Do nothing, the user has clicked or tapped to select on the input. Respect the selection
@@ -177,8 +191,7 @@ export const upgrade = (input, render) => {
       // nb. when we blur, the selectionStart/selectionEnd is lost
       input.scrollLeft = state.scrollLeft;
     } else {
-      // TODO(samthor): work out if 'click' or 'select' were useful?
-      console.info('got useless', events);
+      throw new Error(`unhandled: ${[...events].join(',')}`);
     }
   });
 
@@ -224,11 +237,10 @@ export const upgrade = (input, render) => {
 
     input.focus();
     input.setSelectionRange(target.start, target.end);
-    console.info('input range before change', input.selectionStart, input.selectionEnd);
 
     const expected = input.value.substr(0, target.start) + text + input.value.substr(target.end);
     if (!document.execCommand('insertText', false, text) || input.value !== expected) {
-      input.value = expected;  // execCommand isn't supported
+      input.value = expected;  // execCommand isn't supported on <input>
       input.dispatchEvent(new CustomEvent('change'));
     } else {
       // execCommand generates 'input' event
@@ -237,7 +249,6 @@ export const upgrade = (input, render) => {
     const localDrift = drift.bind(null, target.start, target.end, text);
     state.selectionStart = localDrift(state.selectionStart);
     state.selectionEnd = localDrift(state.selectionEnd);
-    console.info('input range after change', input.selectionStart, input.selectionEnd, 'vs state', state);
 
     if (prevFocus && prevFocus !== input) {
       // FIXME: this clears selection on input?
