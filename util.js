@@ -101,18 +101,18 @@ export class EventController {
     this._enabled = true;
   }
 
-  add(target, type, fn) {
-    this._all.push({target, type, fn});
+  add(target, type, fn, opts) {
+    this._all.push({target, type, fn, opts});
     if (this._enabled) {
-      target.addEventListener(type, fn);
+      target.addEventListener(type, fn, opts);
     }
   }
 
   enable() {
-    this._all.forEach(({target, type, fn}) => target.addEventListener(type, fn));
+    this._all.forEach(({target, type, fn, opts}) => target.addEventListener(type, fn, opts));
   }
 
   disable() {
-    this._all.forEach(({target, type, fn}) => target.removeEventListener(type, fn));
+    this._all.forEach(({target, type, fn, opts}) => target.removeEventListener(type, fn, opts));
   }
 }

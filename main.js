@@ -19,37 +19,6 @@ export const event = Object.seal({
  *   3. Viewport events. e.g., `scroll`: to align preview
  */
 
- /**
-  * @param {!HTMLElement} el
-  * @param {string} text 
-  * @param {!Array<{object, start, length}>} annotations 
-  */
-const render = (render, text, annotations) => {
-  let at = 0;
-  render.textContent = '';
-
-  for (const annot of annotations) {
-    // insert text before this, unless there is none
-    if (annot.start > at) {
-      const node = document.createTextNode(text.substring(at, annot.start));
-      render.appendChild(node);
-      at = annot.start;
-    }
-
-    const el = document.createElement('span');
-    el.className = 'selected';  // TODO
-    el.textContent = text.substr(annot.start, annot.length);
-    console.info('making annot', el.textContent, annot);
-    render.appendChild(el);
-  }
-
-  // add trailer
-  if (at < text.length) {
-    const node = document.createTextNode(text.substr(at));
-    render.appendChild(node);
-  }
-};
-
 
 const drift = (low, high, text, where) => {
   if (where >= high) {
@@ -61,6 +30,37 @@ const drift = (low, high, text, where) => {
 };
 
 
+/**
+ * @param {string} value to autocomplete from
+ * @param {string} from cursor position
+ * @param {string} autocomplete string to match
+ * @return {?string} suffix autocomplete to display
+ */
+const autocompleteSuffix = (value, from, autocomplete) => {
+  if (!autocomplete) {
+    return null;
+  }
+  from = Math.min(value.length, from);
+  value = value.substr(Math.max(0, value.length - autocomplete.length)).toLowerCase();
+  autocomplete = autocomplete.toLowerCase();
+
+  let found = autocomplete;
+  for (let i = 1; i < autocomplete.length; ++i) {
+    const use = autocomplete.length - i;
+    if (value.length - from > use) {
+      return null;  // don't autocomplete past the word length
+    }
+    const test = autocomplete.substr(0, use);
+    if (value.endsWith(test)) {
+      return autocomplete.substr(autocomplete.length - i);
+    }
+  }
+
+  // nb. return null here to make zero state NOT autocomplete
+  return autocomplete;
+};
+
+
 export const upgrade = (input, render) => {
   const state = {
     scrollLeft: input.scrollLeft,
@@ -68,9 +68,9 @@ export const upgrade = (input, render) => {
     selectionEnd: input.selectionEnd,
     selectionDirection: input.selectionDirection,
     value: input.value,
+    autocomplete: '',
   };
   const events = new util.EventController();
-  let forceChange = true;
 
   const autocompleteEl = document.createElement('span');
   autocompleteEl.className = 'autocomplete';
@@ -96,7 +96,7 @@ export const upgrade = (input, render) => {
     const ro = new ResizeObserver(viewportChangeHint);
     ro.observe(input);
   } else {
-    events.add(window, 'resize', (ev) => viewportChangeHint());
+    events.add(window, 'resize', (ev) => viewportChangeHint(), {passive: true});
   }
 
   // Handle left/right scroll on input.
@@ -106,22 +106,22 @@ export const upgrade = (input, render) => {
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     viewportChangeHint();  // most things cause viewport to change
 
-    if (!forceChange &&
+    if (!events.has(true) &&
         state.selectionStart === input.selectionStart &&
         state.selectionEnd === input.selectionEnd &&
         state.value === input.value) {
       return;  // no change
     }
-    forceChange = false;
 
     // retain in case the element is blurred
     state.selectionStart = input.selectionStart;
     state.selectionEnd = input.selectionEnd;
     state.selectionDirection = input.selectionDirection;
     state.value = input.value;
+    const rangeSelection = (state.selectionEnd > state.selectionStart);
 
     // write `data-selection` to element
-    if (state.selectionEnd > state.selectionStart) {
+    if (rangeSelection) {
       const value = state.value.substring(state.selectionStart, state.selectionEnd);
       input.setAttribute('data-selection', value);
     } else {
@@ -154,18 +154,16 @@ export const upgrade = (input, render) => {
       render.insertBefore(align, render.firstChild);
     });
 
-    render.appendChild(autocompleteEl);
-    const cand = 'butt';
-    autocompleteEl.textContent = cand;
-
-    for (let i = 0; i < cand.length; ++i) {
-      const test = cand.substr(0, cand.length - i);
-      if (trim.endsWith(test)) {
-        autocompleteEl.textContent = cand.substr(cand.length - i);
-        break;
+    // Find and render as much of the autocomplete is remaining.
+    if (!rangeSelection) {
+      const found = autocompleteSuffix(trim, state.selectionEnd, state.autocomplete);
+      if (found) {
+        autocompleteEl.textContent = found;
+        render.appendChild(autocompleteEl);
       }
     }
   });
+  contentChangeHint(true);
 
   // If a user is click or touch-dragging, this is changing the input selection and scroll.
   // Chrome and Safari generate 'selectionchange' events for selection within an <input>, and have
@@ -242,34 +240,51 @@ export const upgrade = (input, render) => {
     }
   });
 
-  const replace = (text, target) => {
-    if (target === null) {
-      target = {start: input.selectionStart, end: input.selectionEnd};
-    }
-    const prevFocus = document.activeElement;
-
-    input.focus();
-    input.setSelectionRange(target.start, target.end);
-
-    const expected = input.value.substr(0, target.start) + text + input.value.substr(target.end);
-    if (!document.execCommand('insertText', false, text) || input.value !== expected) {
-      input.value = expected;  // execCommand isn't supported on <input>
-      input.dispatchEvent(new CustomEvent('change'));
-    } else {
-      // execCommand generates 'input' event
-    }
-
-    const localDrift = drift.bind(null, target.start, target.end, text);
-    state.selectionStart = localDrift(state.selectionStart);
-    state.selectionEnd = localDrift(state.selectionEnd);
-
-    if (prevFocus && prevFocus !== input) {
-      prevFocus.focus();
-    }
-  };
-
-  contentChangeHint();
   return {
-    replace,
+
+    /**
+     * @param {string} text to insert
+     * @param {{start: number, end: number}|null} target to apply at, or selection
+     */
+    replace(text, target) { 
+      if (target === null) {
+        target = {start: input.selectionStart, end: input.selectionEnd};
+      }
+      const prevFocus = document.activeElement;
+
+      input.focus();
+      input.setSelectionRange(target.start, target.end);
+
+      const expected = input.value.substr(0, target.start) + text + input.value.substr(target.end);
+      if (!document.execCommand('insertText', false, text) || input.value !== expected) {
+        input.value = expected;  // execCommand isn't supported on <input>
+        input.dispatchEvent(new CustomEvent('change'));
+      } else {
+        // execCommand generates 'input' event
+      }
+
+      const localDrift = drift.bind(null, target.start, target.end, text);
+      state.selectionStart = localDrift(state.selectionStart);
+      state.selectionEnd = localDrift(state.selectionEnd);
+
+      if (prevFocus && prevFocus !== input) {
+        prevFocus.focus();
+      }
+    },
+
+    /**
+     * @param {?string} v to suggest
+     */
+    set suggest(v) {
+      state.autocomplete = v || '';
+    },
+
+    /**
+     * @return {string}
+     */
+    get suggest() {
+      return state.autocomplete;
+    },
+
   };
 };

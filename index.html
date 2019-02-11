@@ -106,6 +106,7 @@ body {
   const input = document.createElement('input');
   holder.appendChild(input);
   input.value = 'This is a very 🍻 long string for testing that contains stuff and emoji.';
+  input.value = 'x he';
 
   const focus = document.createElement('div');
   focus.className = 'focus';
@@ -140,6 +141,8 @@ body {
     // TODO(samthor): This is just ignored/reset by Chrome.
     input.setSelectionRange(0, input.value.length);
   });
+
+  controller.suggest = 'hello';
 
 </script>
 
