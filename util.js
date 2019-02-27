@@ -34,8 +34,6 @@ export const dedup = (target, events, handler) => {
     target.addEventListener(eventName, eventHandler, {passive: true});
   });
 
-  eventHandler();
-
   return (type) => eventHandler(type ? {type} : null);
 };
 
