@@ -1,4 +1,6 @@
 
+const passiveOption = {passive: true};
+
 /**
  * Dedups the given events into the next rAF.
  *
@@ -31,7 +33,7 @@ export const dedup = (target, events, handler) => {
   };
 
   events.forEach((eventName) => {
-    target.addEventListener(eventName, eventHandler, {passive: true});
+    target.addEventListener(eventName, eventHandler, passiveOption);
   });
 
   return (type) => eventHandler(type ? {type} : null);
@@ -72,11 +74,11 @@ export const drag = (target, fn) => {
     }
   };
 
-  target.addEventListener('mousedown', startHandler);
-  target.addEventListener('touchstart', startHandler);
+  target.addEventListener('mousedown', startHandler, passiveOption);
+  target.addEventListener('touchstart', startHandler, passiveOption);
   return () => {
-    target.removeEventListener('mousedown', startHandler);
-    target.removeEventListener('touchstart', startHandler);
+    target.removeEventListener('mousedown', startHandler, passiveOption);
+    target.removeEventListener('touchstart', startHandler, passiveOption);
   };
 };
 
@@ -90,9 +92,10 @@ export const drag = (target, fn) => {
  */
 export const checker = (fn) => {
   let rAF = 0;
+  let count = 0;
 
   const frameHandler = () => {
-    if (fn()) {
+    if (fn(count++)) {
       // run again next frame
       rAF = window.requestAnimationFrame(frameHandler);
     } else {
@@ -101,6 +104,7 @@ export const checker = (fn) => {
   };
 
   const ret = (insideFrame) => {
+    count = 0;
     if (rAF) {
       // nothing to do, we were scheduled even if this is a rAF
     } else if (insideFrame) {
@@ -115,6 +119,12 @@ export const checker = (fn) => {
   };
   ret();  // trigger normal behavior immediately
   return ret;
+};
+
+
+export const isActive = (target) => {
+  const root = (target.getRootNode ? target.getRootNode() : document);
+  return root.activeElement === target;
 };
 
 

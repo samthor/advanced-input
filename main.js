@@ -7,6 +7,7 @@ import * as util from './util.js';
 
 
 export const event = Object.seal({
+  select: '_select',
   space: '_space',
   nav: '_nav',
 });
@@ -76,19 +77,22 @@ export const upgrade = (input, render) => {
   autocompleteEl.className = 'autocomplete';
 
   const viewportChangeHint = (() => {
-    let framesOk = 0;
-    const checkForFrames = 10;  // run for this many frames after last change
+    const checkForFrames = 20;  // run for this many frames after last change
 
-    return util.checker(() => {
-      state.scrollLeft = input.scrollLeft;
+    return util.checker((frames) => {
+      if (!input.scrollLeft && !util.isActive(input)) {
+        // handle browsers setting scrollLeft to zero while non-focused
+        input.scrollLeft = state.scrollLeft;
+      } else {
+        state.scrollLeft = input.scrollLeft;
+      }
 
       const style = `translate(${-input.scrollLeft}px)`;
       if (style !== render.style.transform) {
-        framesOk = 0;
         render.style.transform = style;
         return true;
       }
-      return ++framesOk < checkForFrames;
+      return frames < checkForFrames;
     });
   })();
 
@@ -101,8 +105,9 @@ export const upgrade = (input, render) => {
 
   // Handle left/right scroll on input.
   input.addEventListener('wheel', viewportChangeHint, {passive: true});
+  input.addEventListener('scroll', viewportChangeHint, {passive: true});
 
-  const contentEvents = 'change keydown keypress input value select';
+  const contentEvents = 'change keydown keypress input value select click contextmenu mousedown touchstart';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     viewportChangeHint(true);  // most things cause viewport to change
 
@@ -126,12 +131,10 @@ export const upgrade = (input, render) => {
     } else {
       input.removeAttribute('data-selection');
     }
-    if (!events.has('select')) {
-      input.dispatchEvent(new CustomEvent('select'));
-    }
+    input.dispatchEvent(new CustomEvent(event.select));
 
-    const trim = state.value.replace(/\s+$/, '');
-    render.textContent = trim;
+    const endsWithSpace = !!/\s$/.exec(state.value);
+    render.textContent = state.value;
 
     const annotations = [
       {
@@ -143,11 +146,11 @@ export const upgrade = (input, render) => {
     annotations.forEach(({start, length}) => {
       const align = document.createElement('div');
       align.className = '_align';
-      align.textContent = trim.substr(0, start);
+      align.textContent = state.value.substr(0, start);  // include trailing space
 
       const span = document.createElement('span');
       span.className = 'selected';  // ??
-      span.textContent = trim.substr(start, length);
+      span.textContent = state.value.substr(start, length);
       align.appendChild(span);
 
       render.insertBefore(align, render.firstChild);
@@ -155,7 +158,7 @@ export const upgrade = (input, render) => {
 
     // Find and render as much of the autocomplete is remaining.
     if (!rangeSelection) {
-      const found = autocompleteSuffix(trim, state.selectionEnd, state.autocomplete);
+      const found = autocompleteSuffix(state.value, state.selectionEnd, state.autocomplete);
       if (found) {
         autocompleteEl.textContent = found;
         render.appendChild(autocompleteEl);
@@ -165,42 +168,28 @@ export const upgrade = (input, render) => {
   contentChangeHint();
 
   // If a user is click or touch-dragging, this is changing the input selection and scroll.
-  // Chrome and Safari generate 'selectionchange' events for selection within an <input>, and have
-  // a (useless but exists) handler on the input itself. Firefox does not, so we have to listen to
-  // drag events in case it's a selection change.
-  const hasSelectionChange = 'onselectionchange' in input;
-  const dragHelper = hasSelectionChange ? viewportChangeHint : contentChangeHint;
-  util.drag(input, dragHelper);
+  // We can't use 'selectionchange', even though they're supported on Chrome and Safari, as it does
+  // not fire inside a shadow root.
+  util.drag(input, contentChangeHint);
 
-  // Without 'selectionchange', a click event is a way of changing the selection.
-  if (!hasSelectionChange) {
-    input.addEventListener('click', (ev) => contentChangeHint('click'));
-  }
-
-  // Fired only on Chrome/Safari (as of Firefox 45, it's behind a flag). Long-press select on
-  // mobile doesn't generate "select".
-  events.add(document, 'selectionchange', (ev) => {
-    if (document.activeElement === input) {
-      contentChangeHint('selectionchange');
-    }
-  });
-
-  const focusEvents = 'mousedown touchstart blur focus';
+  const focusEvents = 'mousedown touchstart focus';
   const focusChangeHint = util.dedup(input, focusEvents, (events) => {
     if (events.has('mousedown') || events.has('touchstart')) {
       // Do nothing, the user has clicked or tapped to select on the input. Respect the selection
       // and scrollLeft of the user.
-      // TODO(samthor): could retain selection by calling .setSelectionRange
     } else if (events.has('focus')) {
-      // Focus has occured (not because of mouse), reset last known selection and scroll.
+      // Focus has occured (not because of pointer), reset last known selection and scroll.
       input.setSelectionRange(state.selectionStart, state.selectionEnd, state.selectionDirection);
       input.scrollLeft = state.scrollLeft;  // Safari also reset on focus
-    } else if (events.has('blur')) {
-      // nb. when we blur, the selectionStart/selectionEnd is lost
-      input.scrollLeft = state.scrollLeft;
-    } else {
-      throw new Error(`unhandled: ${[...events].join(',')}`);
     }
+  });
+
+  // Non-deduped focusout handler, to fix scrollLeft on parting input.
+  input.addEventListener('focusout', (ev) => {
+    // This still flashes on Safari because it implements rAF wrong:
+    // https://bugs.webkit.org/show_bug.cgi?id=177484
+    input.scrollLeft = state.scrollLeft;
+    viewportChangeHint();
   });
 
   // Non-deduped keydown handler, for intercepting space and others.

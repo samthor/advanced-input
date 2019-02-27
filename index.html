@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <style>
+@import url('https://fonts.googleapis.com/css?family=Lato:400,700');
 
 body {
   padding: 0;
@@ -29,7 +30,6 @@ body {
 
 .holder input {
   display: block;
-  width: auto;
   font: inherit;
   flex-grow: 1;
   background: transparent;
@@ -127,8 +127,8 @@ body {
     console.info('got nav', ev.detail);
     ev.preventDefault();
   });
-  input.addEventListener('select', (ev) => {
-    console.info('got select', input.value.substring(input.selectionStart, input.selectionEnd), input.selectionStart);
+  input.addEventListener(main.event.select, (ev) => {
+    console.info('got select', input.selectionStart, input.value.substring(input.selectionStart, input.selectionEnd));
     ev.preventDefault();
   });
 
@@ -148,8 +148,40 @@ body {
 
 <button id="select-all">Select all</button>
 <button id="update">Write text</button>
-<input type="text" id="content" placeholder="Text to write" autofocus />
+<input type="text" id="content" placeholder="Text to write" value="Test value" autofocus />
 
 <p>Misc test that could be selected</p>
+
+<script type="module">
+  import AdvancedInputElement from './element.js';
+
+  customElements.define('advanced-input', AdvancedInputElement);
+</script>
+<style>
+advanced-input {
+  font-family: 'Lato', 'Roboto', sans-serif;
+  font-size: 30px;
+  line-height: 56px;
+
+  background: #eee;
+  border-radius: 6px;
+  position: relative;
+}
+advanced-input:focus-within::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px solid red;
+  border-radius: inherit;
+  pointer-events: none;
+}
+</style>
+
+
+<advanced-input value="x" suggest="llo-er"></advanced-input>
+
 
 </body>
