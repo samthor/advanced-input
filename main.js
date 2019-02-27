@@ -7,6 +7,7 @@ import * as util from './util.js';
 
 
 export const event = Object.seal({
+  select: '_select',
   space: '_space',
   nav: '_nav',
 });
@@ -72,6 +73,12 @@ export const upgrade = (input, render) => {
   };
   const events = new util.EventController();
 
+  // Helper which reset the intended selection on various events.
+  const resetSelection = () => {
+    input.setSelectionRange(state.selectionStart, state.selectionEnd, state.selectionDirection);
+    input.scrollLeft = state.scrollLeft;  // Safari also reset on focus
+  };
+
   const autocompleteEl = document.createElement('span');
   autocompleteEl.className = 'autocomplete';
 
@@ -80,6 +87,9 @@ export const upgrade = (input, render) => {
     const checkForFrames = 10;  // run for this many frames after last change
 
     return util.checker(() => {
+      if (document.activeElement !== input) {
+        return false;
+      }
       state.scrollLeft = input.scrollLeft;
 
       const style = `translate(${-input.scrollLeft}px)`;
@@ -96,7 +106,7 @@ export const upgrade = (input, render) => {
     const ro = new ResizeObserver(viewportChangeHint);
     ro.observe(input);
   } else {
-    events.add(window, 'resize', (ev) => viewportChangeHint(), {passive: true});
+    events.add(window, 'resize', viewportChangeHint, {passive: true});
   }
 
   // Handle left/right scroll on input.
@@ -126,9 +136,7 @@ export const upgrade = (input, render) => {
     } else {
       input.removeAttribute('data-selection');
     }
-    if (!events.has('select')) {
-      input.dispatchEvent(new CustomEvent('select'));
-    }
+    input.dispatchEvent(new CustomEvent(event.select));
 
     const trim = state.value.replace(/\s+$/, '');
     render.textContent = trim;
@@ -177,29 +185,62 @@ export const upgrade = (input, render) => {
     input.addEventListener('click', (ev) => contentChangeHint('click'));
   }
 
-  // Fired only on Chrome/Safari (as of Firefox 45, it's behind a flag). Long-press select on
-  // mobile doesn't generate "select".
-  events.add(document, 'selectionchange', (ev) => {
-    if (document.activeElement === input) {
-      contentChangeHint('selectionchange');
+  // Retain focus state and order of 'focusout'/'focusin' events. This is needed to prevent
+  // browsers from clobbering our intended selection state.
+  let focusReason = null;
+  let focusEvent = (document.activeElement === input);
+  input.addEventListener('focusout', (ev) => {
+    // nb. using 'focus' causes scrollLeft to be nuked anyway
+    focusEvent = false;
+    input.scrollLeft = state.scrollLeft;
+
+    // nb. this is for Safari
+    util.raceFrame(() => {
+      input.scrollLeft = state.scrollLeft;
+    });
+
+  });
+  input.addEventListener('mousedown', (ev) => {
+    focusReason = 'pointer';
+    console.warn('mousedown', input.selectionStart, input.selectionEnd);
+  });
+  input.addEventListener('touchstart', (ev) => {
+    focusReason = 'pointer';
+    console.warn('touchstart', input.selectionStart, input.selectionEnd);
+  });
+  input.addEventListener('focusin', (ev) => {
+    console.warn('focusin');
+    focusEvent = true;
+
+    if (!focusReason) {
+      focusReason = 'other';  // probably tab
+    }
+    window.setTimeout(() => {
+      focusReason = null;
+    });
+
+    resetSelection();
+  });
+  input.addEventListener('select', (ev) => {
+    console.warn('select');
+    if (!focusEvent) {
+      // if select occurs outside focus, reset here (the element will be active)
+      resetSelection();
     }
   });
 
-  const focusEvents = 'mousedown touchstart blur focus';
-  const focusChangeHint = util.dedup(input, focusEvents, (events) => {
-    if (events.has('mousedown') || events.has('touchstart')) {
-      // Do nothing, the user has clicked or tapped to select on the input. Respect the selection
-      // and scrollLeft of the user.
-      // TODO(samthor): could retain selection by calling .setSelectionRange
-    } else if (events.has('focus')) {
-      // Focus has occured (not because of mouse), reset last known selection and scroll.
-      input.setSelectionRange(state.selectionStart, state.selectionEnd, state.selectionDirection);
-      input.scrollLeft = state.scrollLeft;  // Safari also reset on focus
-    } else if (events.has('blur')) {
-      // nb. when we blur, the selectionStart/selectionEnd is lost
-      input.scrollLeft = state.scrollLeft;
+  // Fired only on Chrome/Safari (as of Firefox 45, it's behind a flag). Long-press select on
+  // mobile (and some other places) doesn't generate "select".
+  events.add(document, 'selectionchange', (ev) => {
+    if (document.activeElement !== input) {
+      // do nothing
+    } else if (!focusReason) {
+      // no focus in the last frame, this is a normal select
+      contentChangeHint('selectionchange');
     } else {
-      throw new Error(`unhandled: ${[...events].join(',')}`);
+      console.info('resetting selection', focusReason);
+      // Safari aggressively sets input position to last 'selectionchange' event
+      resetSelection();
     }
   });
 

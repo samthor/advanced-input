@@ -104,9 +104,9 @@ body {
   document.body.appendChild(holder);
 
   const input = document.createElement('input');
+  input.id = '_input';
   holder.appendChild(input);
   input.value = 'This is a very 🍻 long string for testing that contains stuff and emoji.';
-  input.value = 'x he';
 
   const focus = document.createElement('div');
   focus.className = 'focus';
@@ -127,9 +127,8 @@ body {
     console.info('got nav', ev.detail);
     ev.preventDefault();
   });
-  input.addEventListener('select', (ev) => {
-    console.info('got select', input.value.substring(input.selectionStart, input.selectionEnd), input.selectionStart);
-    ev.preventDefault();
+  input.addEventListener(main.event.select, (ev) => {
+    console.info('got select', input.selectionStart, input.value.substring(input.selectionStart, input.selectionEnd));
   });
 
   document.getElementById('update').addEventListener('click', (ev) => {

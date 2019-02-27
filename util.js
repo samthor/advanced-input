@@ -31,10 +31,8 @@ export const dedup = (target, events, handler) => {
   };
 
   events.forEach((eventName) => {
-    target.addEventListener(eventName, eventHandler, {passive: true});
+    target.addEventListener(eventName, eventHandler, {passive: true, capture: true});
   });
-
-  eventHandler();
 
   return (type) => eventHandler(type ? {type} : null);
 };
@@ -105,7 +103,7 @@ export const checker = (fn) => {
   const ret = (insideFrame) => {
     if (rAF) {
       // nothing to do, we were scheduled even if this is a rAF
-    } else if (insideFrame) {
+    } else if (insideFrame === true) {
       // caller believes we're inside a rAF itself, just invoke
       frameHandler();
     } else {
@@ -117,6 +115,19 @@ export const checker = (fn) => {
   };
   ret();  // trigger normal behavior immediately
   return ret;
+};
+
+
+export const raceFrame = (fn) => {
+  let done = false;
+  const wrap = () => {
+    if (!done) {
+      fn();
+      done = true;
+    }
+  };
+  window.setTimeout(wrap);
+  window.requestAnimationFrame(wrap);
 };
 
 
