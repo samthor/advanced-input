@@ -2,9 +2,10 @@
 /**
  * Dedups the given events into the next rAF.
  *
- * @param {!Node} target 
- * @param {!IArrayLike<string>|string} events 
- * @param {function(!Set<string>): void} handler 
+ * @param {!Node} target to attach handlers to
+ * @param {!IArrayLike<string>|string} events to dedup
+ * @param {function(!Set<string>): void} handler to run in rAF
+ * @return {function(string=): void} to manually trigger on upcoming rAF
  */
 export const dedup = (target, events, handler) => {
   if (typeof events === 'string') {
@@ -33,6 +34,8 @@ export const dedup = (target, events, handler) => {
     target.addEventListener(eventName, eventHandler, {passive: true});
   });
 
+  eventHandler();
+
   return (type) => eventHandler(type ? {type} : null);
 };
 
@@ -46,12 +49,12 @@ const buttonHeld =
  * Builds a basic drag handler, which when passed a drag-starting event, tracks
  * it until it is complete (touch or mouse).
  *
- * @param {!Element} el to attach handlers to
+ * @param {!Node} target to attach handlers to
  * @param {function(): void} fn to be called while being dragged
  * @return {function(): void} to remove handlers
  */
-export const drag = (el, fn) => {
-  const touchmoveHandler = (ev) => fn();
+export const drag = (target, fn) => {
+  const touchmoveHandler = () => fn();
   const endHandler = (ev) => {
     if (ev.type === 'mousemove' && buttonHeld(ev)) {
       fn();  // only for mousemove event
@@ -71,11 +74,11 @@ export const drag = (el, fn) => {
     }
   };
 
-  el.addEventListener('mousedown', startHandler);
-  el.addEventListener('touchstart', startHandler);
+  target.addEventListener('mousedown', startHandler);
+  target.addEventListener('touchstart', startHandler);
   return () => {
-    el.removeEventListener('mousedown', startHandler);
-    el.removeEventListener('touchstart', startHandler);
+    target.removeEventListener('mousedown', startHandler);
+    target.removeEventListener('touchstart', startHandler);
   };
 };
 

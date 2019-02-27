@@ -64,9 +64,9 @@ const autocompleteSuffix = (value, from, autocomplete) => {
 export const upgrade = (input, render) => {
   const state = {
     scrollLeft: input.scrollLeft,
-    selectionStart: input.selectionStart,
-    selectionEnd: input.selectionEnd,
-    selectionDirection: input.selectionDirection,
+    selectionStart: -1,
+    selectionEnd: -1,
+    selectionDirection: '',
     value: input.value,
     autocomplete: '',
   };
@@ -106,8 +106,7 @@ export const upgrade = (input, render) => {
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     viewportChangeHint(true);  // most things cause viewport to change
 
-    if (!events.has(true) &&
-        state.selectionStart === input.selectionStart &&
+    if (state.selectionStart === input.selectionStart &&
         state.selectionEnd === input.selectionEnd &&
         state.value === input.value) {
       return;  // no change
@@ -163,7 +162,7 @@ export const upgrade = (input, render) => {
       }
     }
   });
-  contentChangeHint(true);
+  contentChangeHint();
 
   // If a user is click or touch-dragging, this is changing the input selection and scroll.
   // Chrome and Safari generate 'selectionchange' events for selection within an <input>, and have
