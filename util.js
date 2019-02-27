@@ -1,5 +1,7 @@
 
 /**
+ * Dedups the given events into the next rAF.
+ *
  * @param {!Node} target 
  * @param {!IArrayLike<string>|string} events 
  * @param {function(!Set<string>): void} handler 
@@ -40,7 +42,16 @@ const buttonHeld =
     ('buttons' in MouseEvent.prototype ? (ev) => ev.buttons : (ev) => ev.which);
 
 
-export const drag = (fn) => {
+/**
+ * Builds a basic drag handler, which when passed a drag-starting event, tracks
+ * it until it is complete (touch or mouse).
+ *
+ * @param {!Element} el to attach handlers to
+ * @param {function(): void} fn to be called while being dragged
+ * @return {function(): void} to remove handlers
+ */
+export const drag = (el, fn) => {
+  const touchmoveHandler = (ev) => fn();
   const endHandler = (ev) => {
     if (ev.type === 'mousemove' && buttonHeld(ev)) {
       fn();  // only for mousemove event
@@ -50,23 +61,30 @@ export const drag = (fn) => {
       document.removeEventListener('touchmove', touchmoveHandler);
     }
   };
-  const touchmoveHandler = (ev) => fn();
 
-  return (ev) => {
+  const startHandler = (ev) => {
     if (ev.type === 'mousedown') {
       document.addEventListener('mousemove', endHandler);
     } else if (ev.type === 'touchstart') {
       document.addEventListener('touchend', endHandler);
       document.addEventListener('touchmove', touchmoveHandler);
-    } else {
-      throw new Error('bad event type: ' + ev.type);
     }
+  };
+
+  el.addEventListener('mousedown', startHandler);
+  el.addEventListener('touchstart', startHandler);
+  return () => {
+    el.removeEventListener('mousedown', startHandler);
+    el.removeEventListener('touchstart', startHandler);
   };
 };
 
 
 /**
- * @param {function(): boolean} fn to run every frame until false
+ * Configures a function to run after kicked off, every rAF, until the passed
+ * method returns a falsey result.
+ *
+ * @param {function(): (boolean|*)} fn to run every frame until false
  * @return {function(): void} kick off checker if not running
  */
 export const checker = (fn) => {
@@ -95,6 +113,9 @@ export const checker = (fn) => {
 };
 
 
+/**
+ * Simple controller that tracks events which can be enabled or disabled.
+ */
 export class EventController {
   constructor(enabled = true) {
     this._all = [];

@@ -171,9 +171,7 @@ export const upgrade = (input, render) => {
   // drag events in case it's a selection change.
   const hasSelectionChange = 'onselectionchange' in input;
   const dragHelper = hasSelectionChange ? viewportChangeHint : contentChangeHint;
-  const drag = util.drag(dragHelper);
-  input.addEventListener('mousedown', drag);
-  input.addEventListener('touchstart', drag);
+  util.drag(input, dragHelper);
 
   // Without 'selectionchange', a click event is a way of changing the selection.
   if (!hasSelectionChange) {
