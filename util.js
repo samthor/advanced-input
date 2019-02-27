@@ -85,31 +85,35 @@ export const drag = (el, fn) => {
  * method returns a falsey result.
  *
  * @param {function(): (boolean|*)} fn to run every frame until false
- * @return {function(): void} kick off checker if not running
+ * @return {function(boolean): void} kick off checker if not running
  */
 export const checker = (fn) => {
   let rAF = 0;
 
-  const checkerHandler = () => {
+  const frameHandler = () => {
     if (fn()) {
       // run again next frame
-      rAF = window.requestAnimationFrame(checkerHandler);
+      rAF = window.requestAnimationFrame(frameHandler);
     } else {
       rAF = 0;
     }
   };
 
-  checkerHandler();  // start immediately
-
-  return () => {
-    // kicks off checker
-    if (!rAF) {
-      // nb. Running this on a frame boundary makes Chrome happy.
+  const ret = (insideFrame) => {
+    if (rAF) {
+      // nothing to do, we were scheduled even if this is a rAF
+    } else if (insideFrame) {
+      // caller believes we're inside a rAF itself, just invoke
+      frameHandler();
+    } else {
+      // enqueue for next frame
       // TODO(samthor): Safari and others don't respect the rAF draw rules, so
       // they might be off by a frame.
-      rAF = window.requestAnimationFrame(checkerHandler);
+      rAF = window.requestAnimationFrame(frameHandler);
     }
   };
+  ret();  // trigger normal behavior immediately
+  return ret;
 };
 
 

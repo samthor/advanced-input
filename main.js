@@ -104,7 +104,7 @@ export const upgrade = (input, render) => {
 
   const contentEvents = 'change keydown keypress input value select';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
-    viewportChangeHint();  // most things cause viewport to change
+    viewportChangeHint(true);  // most things cause viewport to change
 
     if (!events.has(true) &&
         state.selectionStart === input.selectionStart &&
