@@ -41,24 +41,19 @@ const autocompleteSuffix = (value, from, autocomplete) => {
   if (!autocomplete) {
     return null;
   }
-  from = Math.min(value.length, from);
-  value = value.substr(Math.max(0, value.length - autocomplete.length)).toLowerCase();
-  autocomplete = autocomplete.toLowerCase();
 
-  let found = autocomplete;
-  for (let i = 1; i < autocomplete.length; ++i) {
-    const use = autocomplete.length - i;
-    if (value.length - from > use) {
-      return null;  // don't autocomplete past the word length
-    }
-    const test = autocomplete.substr(0, use);
-    if (value.endsWith(test)) {
-      return autocomplete.substr(autocomplete.length - i);
+  const min = Math.max(0, from - autocomplete.length);
+  const tail = value.substr(min).toLowerCase();
+
+  for (let i = 0; i < tail.length; ++i) {
+    if (autocomplete.startsWith(tail.substr(i))) {
+      const displayFrom = tail.length - i;
+      return autocomplete.substr(displayFrom);
     }
   }
 
-  // nb. return null here to make zero state NOT autocomplete
-  return autocomplete;
+  // return autocomplete if at end
+  return (from < value.length ? null : autocomplete);
 };
 
 
@@ -131,6 +126,8 @@ export const upgrade = (input, render) => {
     } else {
       input.removeAttribute('data-selection');
     }
+
+    // nb. this might cause autocomplete to update
     input.dispatchEvent(new CustomEvent(event.select));
 
     const endsWithSpace = !!/\s$/.exec(state.value);
