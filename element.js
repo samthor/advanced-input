@@ -2,7 +2,7 @@ import * as main from './main.js';
 
 export default class extends HTMLElement {
   static get observedAttributes() {
-    return ['value'];
+    return ['suggest', 'value'];
   }
 
   constructor() {
@@ -98,13 +98,21 @@ export default class extends HTMLElement {
     this._input.value = v;
   }
 
+  get suggest() {
+    return this._controller.suggest;
+  }
+
+  set suggest(v) {
+    this._controller.suggest = v;
+  }
+
   attributeChangedCallback(name, oldValue, newValue) {
     switch (name) {
-      case 'value':
-        this._input.value = newValue;
-        break;
       case 'suggest':
         this._controller.suggest = newValue;
+        break;
+      case 'value':
+        this._input.value = newValue;
         break;
     }
   }

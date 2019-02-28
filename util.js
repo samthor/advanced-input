@@ -14,17 +14,20 @@ export const dedup = (target, events, handler) => {
     events = events.split(/\s+/).filter(Boolean);
   }
 
+  let active = false;
   const seenEvents = new Set();
   let frame = 0;
   const eventHandler = (ev) => {
-    if (ev instanceof CustomEvent) {
-      return;  // ignore our own events
-    }
     if (!frame) {
       seenEvents.clear();
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        handler(seenEvents);
+        active = true;
+        try {
+          handler(seenEvents);
+        } finally {
+          active = false;
+        }
       });
     }
     if (ev) {
@@ -36,7 +39,7 @@ export const dedup = (target, events, handler) => {
     target.addEventListener(eventName, eventHandler, passiveOption);
   });
 
-  return (type) => eventHandler(type ? {type} : null);
+  return (type) => eventHandler(type !== undefined ? {type} : null);
 };
 
 

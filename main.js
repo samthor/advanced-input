@@ -12,6 +12,7 @@ export const event = Object.seal({
   nav: '_nav',
 });
 
+
 /*
  * This looks for three classes of events:
  *
@@ -106,7 +107,8 @@ export const upgrade = (input, render) => {
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     viewportChangeHint(true);  // most things cause viewport to change
 
-    if (state.selectionStart === input.selectionStart &&
+    if (!events.has('') &&
+        state.selectionStart === input.selectionStart &&
         state.selectionEnd === input.selectionEnd &&
         state.value === input.value) {
       return;  // no change
@@ -260,6 +262,7 @@ export const upgrade = (input, render) => {
      */
     set suggest(v) {
       state.autocomplete = v || '';
+      contentChangeHint('');
     },
 
     /**
