@@ -111,34 +111,39 @@ export const upgrade = (input, render) => {
     const valueChange = (state.value !== input.value);
     const selectionChange = (state.selectionStart !== input.selectionStart ||
         state.selectionEnd !== input.selectionEnd);
+    const anyChange = valueChange || selectionChange;
 
-    if (!events.has(null) && !selectionChange && !valueChange) {
+    if (!events.has(null) && !anyChange) {
       return;  // no change
     }
 
-    // retain in case the element is blurred
-    state.selectionStart = input.selectionStart;
-    state.selectionEnd = input.selectionEnd;
-    state.selectionDirection = input.selectionDirection;
-    state.value = input.value;
-    const rangeSelection = (state.selectionEnd > state.selectionStart);
+    const rangeSelection = (input.selectionEnd > input.selectionStart);
 
-    // write `data-selection` to element
-    if (rangeSelection) {
-      const value = state.value.substring(state.selectionStart, state.selectionEnd);
-      input.setAttribute('data-selection', value);
-    } else {
-      input.removeAttribute('data-selection');
+    if (anyChange) {
+      // retain in case the element is blurred
+      state.selectionStart = input.selectionStart;
+      state.selectionEnd = input.selectionEnd;
+      state.selectionDirection = input.selectionDirection;
+      state.value = input.value;
+
+      // write `data-selection` to element
+      if (rangeSelection) {
+        const value = state.value.substring(state.selectionStart, state.selectionEnd);
+        input.setAttribute('data-selection', value);
+      } else {
+        input.removeAttribute('data-selection');
+      }
+
+      // optionally reset markup and inform client of selection
+      if (valueChange) {
+        state.markup.clear();
+      }
+      const detail = {change: valueChange};
+      input.dispatchEvent(new CustomEvent(event.select, {detail}));
+
+      // rerender text
+      render.textContent = state.value;
     }
-
-    // optionally reset markup and inform client of selection
-    if (change) {
-      state.markup.clear();
-    }
-    const detail = {change: valueChange};
-    input.dispatchEvent(new CustomEvent(event.select, {detail}));
-
-    render.textContent = state.value;
 
     const annotations = [
       {
