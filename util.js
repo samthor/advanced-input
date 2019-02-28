@@ -30,16 +30,15 @@ export const dedup = (target, events, handler) => {
         }
       });
     }
-    if (ev) {
-      seenEvents.add(ev.type);
-    }
+
+    seenEvents.add(ev ? ev.type : null);
   };
 
   events.forEach((eventName) => {
     target.addEventListener(eventName, eventHandler, passiveOption);
   });
 
-  return (type) => eventHandler(type !== undefined ? {type} : null);
+  return () => eventHandler(null);
 };
 
 
@@ -130,28 +129,3 @@ export const isActive = (target) => {
   return root.activeElement === target;
 };
 
-
-/**
- * Simple controller that tracks events which can be enabled or disabled.
- */
-export class EventController {
-  constructor(enabled = true) {
-    this._all = [];
-    this._enabled = true;
-  }
-
-  add(target, type, fn, opts) {
-    this._all.push({target, type, fn, opts});
-    if (this._enabled) {
-      target.addEventListener(type, fn, opts);
-    }
-  }
-
-  enable() {
-    this._all.forEach(({target, type, fn, opts}) => target.addEventListener(type, fn, opts));
-  }
-
-  disable() {
-    this._all.forEach(({target, type, fn, opts}) => target.removeEventListener(type, fn, opts));
-  }
-}

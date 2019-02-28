@@ -67,7 +67,6 @@ export const upgrade = (input, render) => {
     value: input.value,
     autocomplete: '',
   };
-  const events = new util.EventController();
 
   const autocompleteEl = document.createElement('span');
   autocompleteEl.className = 'autocomplete';
@@ -96,7 +95,8 @@ export const upgrade = (input, render) => {
     const ro = new ResizeObserver(viewportChangeHint);
     ro.observe(input);
   } else {
-    events.add(window, 'resize', (ev) => viewportChangeHint(), {passive: true});
+    // TODO(samthor): this leaks the handler
+    window.addEventListener('resize', (ev) => viewportChangeHint());
   }
 
   // Handle left/right scroll on input.
@@ -107,7 +107,7 @@ export const upgrade = (input, render) => {
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     viewportChangeHint(true);  // most things cause viewport to change
 
-    if (!events.has('') &&
+    if (!events.has(null) &&
         state.selectionStart === input.selectionStart &&
         state.selectionEnd === input.selectionEnd &&
         state.value === input.value) {
@@ -262,7 +262,7 @@ export const upgrade = (input, render) => {
      */
     set suggest(v) {
       state.autocomplete = v || '';
-      contentChangeHint('');
+      contentChangeHint();
     },
 
     /**
