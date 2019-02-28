@@ -108,13 +108,13 @@ export const upgrade = (input, render) => {
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     viewportChangeHint(true);  // most things cause viewport to change
 
-    if (!events.has(null) &&
-        state.selectionStart === input.selectionStart &&
-        state.selectionEnd === input.selectionEnd &&
-        state.value === input.value) {
+    const valueChange = (state.value !== input.value);
+    const selectionChange = (state.selectionStart !== input.selectionStart ||
+        state.selectionEnd !== input.selectionEnd);
+
+    if (!events.has(null) && !selectionChange && !valueChange) {
       return;  // no change
     }
-    const change = state.value !== input.value;
 
     // retain in case the element is blurred
     state.selectionStart = input.selectionStart;
@@ -135,7 +135,7 @@ export const upgrade = (input, render) => {
     if (change) {
       state.markup.clear();
     }
-    const detail = {change};
+    const detail = {change: valueChange};
     input.dispatchEvent(new CustomEvent(event.select, {detail}));
 
     render.textContent = state.value;
@@ -270,7 +270,11 @@ export const upgrade = (input, render) => {
       }
     },
 
-    mark(className, target) {
+    /**
+     * @param {string} className to use
+     * @param {?{start: number, end: number}=} target to apply to, or null to clear
+     */
+    mark(className, target=null) {
       if (target) {
         state.markup.set(className, target);
       } else if (state.markup.has(className)) {
