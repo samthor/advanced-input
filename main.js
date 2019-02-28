@@ -140,10 +140,10 @@ export const upgrade = (input, render) => {
       }
       const detail = {change: valueChange};
       input.dispatchEvent(new CustomEvent(event.select, {detail}));
-
-      // rerender text
-      render.textContent = state.value;
     }
+
+    // rerender text (always do this for now, clears annotations)
+    render.textContent = state.value;
 
     const annotations = [
       {
@@ -177,7 +177,7 @@ export const upgrade = (input, render) => {
     if (!rangeSelection) {
       const found = autocompleteSuffix(state.value, state.selectionEnd, state.autocomplete);
       if (found) {
-        autocompleteEl.textContent = found;
+        autocompleteEl.textContent = '\u200b' + found;  // zero-width space here
         render.appendChild(autocompleteEl);
       }
     }

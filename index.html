@@ -28,7 +28,7 @@ body {
   overflow: hidden;
 }
 
-.holder input {
+.holder .input {
   display: block;
   font: inherit;
   flex-grow: 1;
@@ -38,9 +38,10 @@ body {
   padding: 0;
   z-index: 1;
   width: inherit;
+  resize: none;
 }
 
-.holder input:focus {
+.holder .input:focus {
   outline: none;
 }
 .holder .focus {
@@ -54,17 +55,22 @@ body {
   z-index: 2;
   pointer-events: none;
 }
-.holder input:focus ~ .focus {
+.holder .input:focus ~ .focus {
   opacity: 1;
 }
 
 .holder .render {
   background: #fff;
-  padding-left: 12px;
-  white-space: pre;
+  text-indent: 12px;
   will-change: transform;
   pointer-events: none;
   user-select: none;
+  white-space: pre;
+/*
+// if this is a textarea, use this
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+*/
 }
 
 .holder .render .autocomplete {
@@ -104,6 +110,7 @@ body {
   document.body.appendChild(holder);
 
   const input = document.createElement('input');
+  input.className = 'input';
   holder.appendChild(input);
   input.value = 'This is a very 🍻 long string for testing that contains stuff and emoji.';
   input.value = 'x he';
