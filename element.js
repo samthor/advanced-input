@@ -1,5 +1,16 @@
 import * as main from './main.js';
 
+let regexpGroup = `[\\p{Letter}\\p{Number}\\p{Punctuation}]|\\uDBBF\\uDFE3|¯`;
+
+try {
+  new RegExp(regexpGroup, 'u');
+} catch (e) {
+  regexpGroup = '\\S';
+}
+
+const leftRe = new RegExp(`(?:${regexpGroup})*$`, 'u');
+const rightRe = new RegExp(`^(?:${regexpGroup})*`, 'u');
+
 export default class extends HTMLElement {
   static get observedAttributes() {
     return ['suggest', 'value'];
@@ -28,8 +39,8 @@ export default class extends HTMLElement {
   margin: 0;
   background: transparent;
   text-indent: var(--text-indent, 12px);
-  overflow-y: hidden;
-  line-height: normal;  /* safari caret fix */
+  overflow: hidden;
+  line-height: 1.2em;  /* safari caret fix */
 }
 #input:focus {
   outline: none;
@@ -50,12 +61,19 @@ export default class extends HTMLElement {
   visibility: visible;
 }
 ._align > span:not(:empty) {
-  background: var(--selection-color, #ccc7);
   margin: -2px -1px;
   padding: 2px 1px;
   border-radius: 2px;
   color: transparent;
 }
+._align > span.selected {
+  background: var(--selection-color, #33fc);
+}
+
+._align > span._highlight {
+  background: var(--highlight-color, #ccca);
+}
+
 .autocomplete {
   opacity: 0.5;
   visibility: visible;
@@ -87,6 +105,9 @@ export default class extends HTMLElement {
 
     this._controller = main.upgrade(this._input, target);
     this._controller.suggest = this.getAttribute('suggest');
+
+    this._input.addEventListener(main.event.select, this._select.bind(this));
+    this._input.addEventListener(main.event.nav, this._nav.bind(this));
   }
 
   get value() {
@@ -104,6 +125,31 @@ export default class extends HTMLElement {
 
   set suggest(v) {
     this._controller.suggest = v;
+  }
+
+  _select(ev) {
+    if (this._input.selectionStart !== this._input.selectionEnd) {
+      this._controller.mark('highlight');
+      return;  // ignore range selection
+    }
+
+    const value = this._input.value;
+    const anchor = this._input.selectionStart;
+    const leftMatch = leftRe.exec(value.substr(0, anchor));
+    const rightMatch = rightRe.exec(value.substr(anchor));
+
+    const start = anchor - leftMatch[0].length;
+    const end = anchor + rightMatch[0].length;
+
+    this._controller.mark('highlight', {start, end});
+  }
+
+  _nav(ev) {
+    ev.preventDefault();
+  }
+
+  mark(className, target) {
+    this._controller.mark(className, target);
   }
 
   attributeChangedCallback(name, oldValue, newValue) {

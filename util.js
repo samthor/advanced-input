@@ -18,6 +18,9 @@ export const dedup = (target, events, handler) => {
   const seenEvents = new Set();
   let frame = 0;
   const eventHandler = (ev) => {
+    if (active && !ev) {
+      return;  // do nothing
+    }
     if (!frame) {
       seenEvents.clear();
       frame = window.requestAnimationFrame(() => {

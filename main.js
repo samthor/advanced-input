@@ -66,6 +66,7 @@ export const upgrade = (input, render) => {
     selectionDirection: '',
     value: input.value,
     autocomplete: '',
+    markup: new Map(),
   };
 
   const autocompleteEl = document.createElement('span');
@@ -113,6 +114,7 @@ export const upgrade = (input, render) => {
         state.value === input.value) {
       return;  // no change
     }
+    const change = state.value !== input.value;
 
     // retain in case the element is blurred
     state.selectionStart = input.selectionStart;
@@ -129,26 +131,37 @@ export const upgrade = (input, render) => {
       input.removeAttribute('data-selection');
     }
 
-    // nb. this might cause autocomplete to update
-    input.dispatchEvent(new CustomEvent(event.select));
+    // optionally reset markup and inform client of selection
+    if (change) {
+      state.markup.clear();
+    }
+    const detail = {change};
+    input.dispatchEvent(new CustomEvent(event.select, {detail}));
 
-    const endsWithSpace = !!/\s$/.exec(state.value);
     render.textContent = state.value;
 
     const annotations = [
       {
         start: input.selectionStart,
         length: input.selectionEnd - input.selectionStart,
-        object: null,
+        className: 'selected',
       },
     ];
-    annotations.forEach(({start, length}) => {
+    state.markup.forEach(({start, end}, value) => {
+      annotations.push({
+        start,
+        length: end - start,
+        className: '_' + value,
+      })
+    });
+
+    annotations.forEach(({start, length, className}) => {
       const align = document.createElement('div');
       align.className = '_align';
       align.textContent = state.value.substr(0, start);  // include trailing space
 
       const span = document.createElement('span');
-      span.className = 'selected';  // ??
+      span.className = className;
       span.textContent = state.value.substr(start, length);
       align.appendChild(span);
 
@@ -167,7 +180,7 @@ export const upgrade = (input, render) => {
   contentChangeHint();
 
   // If a user is click or touch-dragging, this is changing the input selection and scroll.
-  // We can't use 'selectionchange', even though they're supported on Chrome and Safari, as it does
+  // We can't use 'selectionchange', even though it is supported on Chrome and Safari, as it does
   // not fire inside a shadow root.
   util.drag(input, contentChangeHint);
 
@@ -255,6 +268,17 @@ export const upgrade = (input, render) => {
       if (prevFocus && prevFocus !== input) {
         prevFocus.focus();
       }
+    },
+
+    mark(className, target) {
+      if (target) {
+        state.markup.set(className, target);
+      } else if (state.markup.has(className)) {
+        state.markup.delete(className);
+      } else {
+        return false;
+      }
+      contentChangeHint();
     },
 
     /**
