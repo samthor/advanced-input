@@ -1,4 +1,4 @@
-import * as main from './main.js';
+import * as advancedInput from './index.js';
 
 let regexpGroup = `[\\p{Letter}\\p{Number}\\p{Punctuation}]|\\uDBBF\\uDFE3|¯`;
 
@@ -121,11 +121,11 @@ textarea + #target {
     holder.insertBefore(this._input, holder.firstChild);
 
     const target = root.getElementById('target');
-    this._controller = main.upgrade(this._input, target);
+    this._controller = advancedInput.upgrade(this._input, target);
     this._controller.suggest = this.getAttribute('suggest');
 
-    this._input.addEventListener(main.event.select, this._select.bind(this));
-    this._input.addEventListener(main.event.nav, this._nav.bind(this));
+    this._input.addEventListener(advancedInput.event.select, this._select.bind(this));
+    this._input.addEventListener(advancedInput.event.nav, this._nav.bind(this));
 
     this.addEventListener('click', (ev) => {
       if (!ev.defaultPrevented) {
