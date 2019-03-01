@@ -80,6 +80,9 @@ textarea#input {
 ._align > span._highlight {
   background: var(--highlight-color, #ccca);
 }
+._align > span._test {
+  background: red;
+}
 
 .autocomplete {
   opacity: 0.5;

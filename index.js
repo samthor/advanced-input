@@ -139,10 +139,18 @@ export const upgrade = (input, render) => {
         input.removeAttribute('data-selection');
       }
 
-      // optionally reset markup and inform client of selection
+      // optionally clear invalid markup and inform client of selection
       if (valueChange) {
-        state.markup.clear();
+        // TODO(samthor): if unrelated text is modified (before/after) we could drift these values
+        for (const k of state.markup.keys()) {
+          const {rev} = state.markup.get(k);
+          if (rev !== state.value) {
+            state.markup.delete(k);
+          }
+        }
       }
+
+      // something changed, and the value may have changed: clients should do markup again
       const detail = {change: valueChange};
       input.dispatchEvent(new CustomEvent(event.select, {detail}));
     }
@@ -276,12 +284,9 @@ export const upgrade = (input, render) => {
 
     /**
      * @param {string} text to insert
-     * @param {{start: number, end: number}|null} target to apply at, or selection
+     * @param {{start: number, end: number}=} target to apply at, or selection
      */
-    replace(text, target) { 
-      if (target === null) {
-        target = {start: input.selectionStart, end: input.selectionEnd};
-      }
+    replace(text, target={start: input.selectionStart, end: input.selectionEnd}) { 
       const prevFocus = document.activeElement;
 
       input.focus();
@@ -289,7 +294,8 @@ export const upgrade = (input, render) => {
 
       const expected = input.value.substr(0, target.start) + text + input.value.substr(target.end);
       if (!document.execCommand('insertText', false, text) || input.value !== expected) {
-        input.value = expected;  // execCommand isn't supported on <input>
+        // execCommand isn't supported in HTML form elements (e.g. Firefox)
+        input.value = expected;
         input.dispatchEvent(new CustomEvent('change'));
       } else {
         // execCommand generates 'input' event
@@ -310,7 +316,11 @@ export const upgrade = (input, render) => {
      */
     mark(className, target=null) {
       if (target) {
-        state.markup.set(className, target);
+        state.markup.set(className, {
+          start: target.start,
+          end: target.end,
+          rev: input.value,
+        });
       } else if (state.markup.has(className)) {
         state.markup.delete(className);
       } else {
