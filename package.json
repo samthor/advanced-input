@@ -1,6 +1,6 @@
 {
   "name": "advanced-input",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Augment <input> and <textarea> elements with advanced features",
   "main": "index.js",
   "repository": "git@github.com:samthor/advanced-input.git",
