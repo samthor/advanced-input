@@ -36,25 +36,27 @@ const drift = (low, high, text, where) => {
  * @param {string} value to autocomplete from
  * @param {string} from cursor position
  * @param {string} autocomplete string to match
- * @return {?string} suffix autocomplete to display
+ * @return {number} display from this character (or -1 for invalid)
  */
 const autocompleteSuffix = (value, from, autocomplete) => {
   if (!autocomplete) {
-    return null;
+    return -1;
   }
 
+  // FIXME(samthor): case-insensitivity is opinionated.
+  // FIXME(samthor): it would be nice to also only start on word boundary
+  const check = autocomplete.toLowerCase();
   const min = Math.max(0, from - autocomplete.length);
   const tail = value.substr(min).toLowerCase();
 
   for (let i = 0; i < tail.length; ++i) {
-    if (autocomplete.startsWith(tail.substr(i))) {
-      const displayFrom = tail.length - i;
-      return autocomplete.substr(displayFrom);
+    if (check.startsWith(tail.substr(i))) {
+      return tail.length - i;
     }
   }
 
   // return autocomplete if at end
-  return (from < value.length ? null : autocomplete);
+  return (from < value.length ? -1 : 0);
 };
 
 
@@ -148,13 +150,6 @@ export const upgrade = (input, render) => {
     // rerender text (always do this for now, clears annotations)
     render.textContent = state.value;
 
-    // inform the textarea of how big we actually are
-    if (input.localName === 'textarea') {
-      render.appendChild(heightEl);
-      const lines = render.offsetHeight / heightEl.offsetHeight;
-      input.setAttribute('rows', Math.max(1, ~~lines));
-    }
-
     const annotations = [
       {
         start: input.selectionStart,
@@ -186,12 +181,21 @@ export const upgrade = (input, render) => {
     // Find and render as much of the autocomplete is remaining.
     if (!rangeSelection) {
       const found = autocompleteSuffix(state.value, state.selectionEnd, state.autocomplete);
-      if (found) {
-        autocompleteEl.textContent = '\u200b' + found;  // zero-width space here
+      if (found >= 0) {
+        const suffix = state.autocomplete.substr(found);
+        autocompleteEl.textContent = '\u200b' + suffix;  // zero-width space here
         render.appendChild(autocompleteEl);
       }
     }
+
+    // Inform the textarea of how big we actually are.
+    if (input.localName === 'textarea') {
+      render.appendChild(heightEl);  // nb. render now includes autocomplete
+      const renderLines = ~~(render.offsetHeight / heightEl.offsetHeight);
+      input.setAttribute('rows', Math.max(1, renderLines));
+    }
   });
+
   contentChangeHint();
 
   // If a user is click or touch-dragging, this is changing the input selection and scroll.
@@ -313,6 +317,17 @@ export const upgrade = (input, render) => {
         return false;
       }
       contentChangeHint();
+    },
+
+    /**
+     * @param {strin} s to match against
+     * @return {number} how much of this autocomplete string matches, -1 for invalid
+     */
+    autocompleteMatch(s) {
+      if (input.selectionStart !== input.selectionEnd) {
+        return -1;
+      }
+      return autocompleteSuffix(input.value, input.selectionStart, s);
     },
 
     /**

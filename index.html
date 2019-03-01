@@ -170,6 +170,8 @@ advanced-input {
   font-size: 30px;
   line-height: 42px;
   padding: 6px 0;
+  min-width: 500px;
+  min-height: 4em;
 
   background: #eee;
   border-radius: 6px;
@@ -192,7 +194,48 @@ advanced-input:focus-within::after {
 </style>
 
 
-<advanced-input value="x" suggest="llo-er" multiline></advanced-input>
-<advanced-input value="x" suggest="single"></advanced-input>
+<advanced-input multiline id="email"></advanced-input>
+
+<div id="foo" style="height: 200px"></div>
+
+<!-- <advanced-input value="x" suggest="single"></advanced-input> -->
+
+<script type="module">
+  import * as main from './main.js';
+
+  const cands = [
+    'Made with Custom Elements',
+    'See you later',
+    'Thanks for your email',
+    'Emojityper is the best 😂',
+    'omw',
+  ];
+
+  const email = document.getElementById('email');
+  email.addEventListener(main.event.select, (ev) => {
+    // FIXME: probably pretty slow, should settle and then eval
+    let best = null;
+    let bestValue = -1;
+    for (const cand of cands) {
+      const match = email.suggestMatch(cand);
+      const adjusted = match / cand.length;
+      if (match && adjusted > bestValue && match >= Math.sqrt(cand.length)) {
+        best = cand;
+        bestValue = adjusted;
+      }
+    }
+    email.suggest = best;
+  });
+
+  email.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Tab' && email.suggest) {
+      const match = email.suggestMatch(email.suggest);
+      email.value += email.suggest.substr(match);
+      email.suggest = null;
+      ev.preventDefault();
+    }
+  }, {capture: true});
+
+</script>
 
 </body>

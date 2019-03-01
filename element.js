@@ -24,6 +24,7 @@ export default class extends HTMLElement {
 <style>
 :host {
   display: inline-block;
+  cursor: text;
 }
 #holder {
   position: relative;
@@ -33,6 +34,7 @@ export default class extends HTMLElement {
 }
 #input {
   display: inline-block;
+  width: 100%;
   font: inherit;
   border: 0;
   padding: 0;
@@ -124,6 +126,12 @@ textarea + #target {
 
     this._input.addEventListener(main.event.select, this._select.bind(this));
     this._input.addEventListener(main.event.nav, this._nav.bind(this));
+
+    this.addEventListener('click', (ev) => {
+      if (!ev.defaultPrevented) {
+        this._input.focus();
+      }
+    });
   }
 
   get value() {
@@ -155,11 +163,17 @@ textarea + #target {
     }
   }
 
+  suggestMatch(cand) {
+    return this._controller.autocompleteMatch(cand);
+  }
+
   _updateInputType() {
     // TODO(samthor): make this work
   }
 
   _select(ev) {
+    this.dispatchEvent(new CustomEvent(ev.type));
+
     if (this._input.selectionStart !== this._input.selectionEnd) {
       this._controller.mark('highlight');
       return;  // ignore range selection
