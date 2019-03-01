@@ -141,7 +141,8 @@ body {
 
   document.getElementById('update').addEventListener('click', (ev) => {
     const word = document.getElementById('content').value;
-    controller.replace(word, {start: 1, end: 2});
+    const l = input.value.length;
+    controller.replace(word, {start: l, end: l});
   });
 
   document.getElementById('select-all').addEventListener('click', (ev) => {

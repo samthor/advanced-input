@@ -25,7 +25,7 @@ export const event = Object.seal({
 const drift = (low, high, text, where) => {
   if (where >= high) {
     where = where - (high - low) + text.length;  // after
-  } else if (where >= low) {
+  } else if (where > low) {
     where = low + text.length;  // during
   }
   return where;
@@ -286,7 +286,7 @@ export const upgrade = (input, render) => {
      * @param {string} text to insert
      * @param {{start: number, end: number}=} target to apply at, or selection
      */
-    replace(text, target={start: input.selectionStart, end: input.selectionEnd}) { 
+    replace(text, target={start: state.selectionStart, end: state.selectionEnd}) {
       const prevFocus = document.activeElement;
 
       input.focus();
