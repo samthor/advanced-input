@@ -72,6 +72,9 @@ export const upgrade = (input, render) => {
   const autocompleteEl = document.createElement('span');
   autocompleteEl.className = 'autocomplete';
 
+  const heightEl = document.createElement('span');
+  heightEl.textContent = '\u200b';
+
   const viewportChangeHint = (() => {
     const checkForFrames = 20;  // run for this many frames after last change
 
@@ -144,6 +147,13 @@ export const upgrade = (input, render) => {
 
     // rerender text (always do this for now, clears annotations)
     render.textContent = state.value;
+
+    // inform the textarea of how big we actually are
+    if (input.localName === 'textarea') {
+      render.appendChild(heightEl);
+      const lines = render.offsetHeight / heightEl.offsetHeight;
+      input.setAttribute('rows', Math.max(1, ~~lines));
+    }
 
     const annotations = [
       {
@@ -223,9 +233,24 @@ export const upgrade = (input, render) => {
     case 'Down':
       const ce = new CustomEvent(event.nav, {detail: dir, cancelable: true});
       input.dispatchEvent(ce);
-      if (ce.defaultPrevented) {
-        ev.preventDefault();  // disable normal up/down behavior to change focus
+      if (!ce.defaultPrevented) {
+        break;
       }
+
+      if (input.localName === 'textarea') {
+        // .. check textarea content if the caller wants to disable nav
+        let check;
+        if (dir === -1) {
+          check = input.value.substr(0, input.selectionStart);
+        } else {
+          check = input.value.substr(input.selectionEnd);
+        }
+        if (check.indexOf('\n') !== -1) {
+          break;
+        }
+      }
+
+      ev.preventDefault();  // disable normal up/down behavior to change focus
       break;
 
     case ' ':

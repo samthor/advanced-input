@@ -168,11 +168,15 @@ body {
 advanced-input {
   font-family: 'Lato', 'Roboto', sans-serif;
   font-size: 30px;
-  line-height: 56px;
+  line-height: 42px;
+  padding: 6px 0;
 
   background: #eee;
   border-radius: 6px;
   position: relative;
+}
+advanced-input[multiline] {
+  padding: 6px 12px;
 }
 advanced-input:focus-within::after {
   content: '';
@@ -188,7 +192,7 @@ advanced-input:focus-within::after {
 </style>
 
 
-<advanced-input value="x" suggest="llo-er"></advanced-input>
-
+<advanced-input value="x" suggest="llo-er" multiline></advanced-input>
+<advanced-input value="x" suggest="single"></advanced-input>
 
 </body>

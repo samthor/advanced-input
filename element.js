@@ -13,7 +13,7 @@ const rightRe = new RegExp(`^(?:${regexpGroup})*`, 'u');
 
 export default class extends HTMLElement {
   static get observedAttributes() {
-    return ['suggest', 'value'];
+    return ['suggest', 'value', 'multiline'];
   }
 
   constructor() {
@@ -38,9 +38,11 @@ export default class extends HTMLElement {
   padding: 0;
   margin: 0;
   background: transparent;
-  text-indent: var(--text-indent, 12px);
   overflow: hidden;
-  line-height: 1.2em;  /* safari caret fix */
+  resize: none;  /* in case we are textarea */
+}
+input#input {
+  text-indent: var(--text-indent, 12px);
 }
 #input:focus {
   outline: none;
@@ -50,6 +52,9 @@ export default class extends HTMLElement {
 }
 #input::-moz-selection {
   background: transparent;
+}
+textarea#input {
+  display: block;
 }
 
 ._align {
@@ -82,27 +87,38 @@ export default class extends HTMLElement {
 #target {
   visibility: hidden;
   z-index: -1;
-  text-indent: var(--text-indent, 12px);
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  /* don't set bottom, in case we're a multiline and need to measure */
   pointer-events: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+input + #target {
+  text-indent: var(--text-indent, 12px);
   white-space: pre;
 }
+textarea + #target {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
 </style>
 <div id="holder">
-  <input type="text" id="input" />
   <div id="target"></div>
 </div>
 `;
-    const target = root.getElementById('target');
-    this._input = root.getElementById('input');
+    this._input = this.ownerDocument.createElement(this.multiline ? 'textarea' : 'input');
     this._input.value = this.getAttribute('value');
+    this._input.setAttribute('id', 'input');
 
+    const holder = root.getElementById('holder');
+    holder.insertBefore(this._input, holder.firstChild);
+
+    const target = root.getElementById('target');
     this._controller = main.upgrade(this._input, target);
     this._controller.suggest = this.getAttribute('suggest');
 
@@ -125,6 +141,22 @@ export default class extends HTMLElement {
 
   set suggest(v) {
     this._controller.suggest = v;
+  }
+
+  get multiline() {
+    return this.hasAttribute('multiline');
+  }
+
+  set multiline(v) {
+    if (v) {
+      this.setAttribute('multiline', this.getAttribute('multiline') || '');
+    } else {
+      this.removeAttribute('multiline');
+    }
+  }
+
+  _updateInputType() {
+    // TODO(samthor): make this work
   }
 
   _select(ev) {
@@ -154,6 +186,10 @@ export default class extends HTMLElement {
 
   attributeChangedCallback(name, oldValue, newValue) {
     switch (name) {
+      case 'multiline':
+        // we need to replace the input with a textarea or vice versa
+        this._updateInputType();
+        break;
       case 'suggest':
         this._controller.suggest = newValue;
         break;
