@@ -25,7 +25,7 @@ export const event = Object.seal({
 const drift = (low, high, text, where) => {
   if (where >= high) {
     where = where - (high - low) + text.length;  // after
-  } else if (where > low) {
+  } else if (where >= low) {
     where = low + text.length;  // during
   }
   return where;
