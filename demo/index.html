@@ -123,18 +123,18 @@ body {
   target.className = 'render';
   holder.appendChild(target);
 
-  import * as main from './main.js';
+  import * as advancedInput from '../index.js';
   input.setSelectionRange(0, 0);  // nb. causes Safari to focus input
-  const controller = main.upgrade(input, target);
+  const controller = advancedInput.upgrade(input, target);
 
-  input.addEventListener(main.event.space, (ev) => {
+  input.addEventListener(advancedInput.event.space, (ev) => {
     console.info('got space autocomplete', ev.detail);
   });
-  input.addEventListener(main.event.nav, (ev) => {
+  input.addEventListener(advancedInput.event.nav, (ev) => {
     console.info('got nav', ev.detail);
     ev.preventDefault();
   });
-  input.addEventListener(main.event.select, (ev) => {
+  input.addEventListener(advancedInput.event.select, (ev) => {
     console.info('got select', input.selectionStart, input.value.substring(input.selectionStart, input.selectionEnd));
     ev.preventDefault();
   });
@@ -160,7 +160,7 @@ body {
 <p>Misc test that could be selected</p>
 
 <script type="module">
-  import AdvancedInputElement from './element.js';
+  import AdvancedInputElement from '../element.js';
 
   customElements.define('advanced-input', AdvancedInputElement);
 </script>
@@ -201,7 +201,7 @@ advanced-input:focus-within::after {
 <!-- <advanced-input value="x" suggest="single"></advanced-input> -->
 
 <script type="module">
-  import * as main from './main.js';
+  import * as advancedInput from '../index.js';
 
   const cands = [
     'Made with Custom Elements',
@@ -212,7 +212,7 @@ advanced-input:focus-within::after {
   ];
 
   const email = document.getElementById('email');
-  email.addEventListener(main.event.select, (ev) => {
+  email.addEventListener(advancedInput.event.select, (ev) => {
     // FIXME: probably pretty slow, should settle and then eval
     let best = null;
     let bestValue = -1;
