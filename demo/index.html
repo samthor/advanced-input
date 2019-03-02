@@ -142,19 +142,23 @@ body {
   document.getElementById('update').addEventListener('click', (ev) => {
     const word = document.getElementById('content').value;
     const l = input.value.length;
-    controller.replace(word, {start: l, end: l});
+    controller.replace(word);
   });
 
   document.getElementById('select-all').addEventListener('click', (ev) => {
     // TODO(samthor): This is just ignored/reset by Chrome.
-    input.setSelectionRange(0, input.value.length);
+    const prev = document.activeElement;
+    input.focus();
+    input.setSelectionRange(0, 3);
+    prev.focus();
   });
 
+  window.input = input;
   controller.suggest = 'hello';
 
 </script>
 
-<button id="select-all">Select all</button>
+<button id="select-all">Select 0-3</button>
 <button id="update">Write text</button>
 <input type="text" id="content" placeholder="Text to write" value="Test value" autofocus />
 
@@ -195,14 +199,11 @@ advanced-input:focus-within::after {
 </style>
 
 
-<advanced-input multiline id="email"></advanced-input>
-
-<div id="foo" style="height: 200px"></div>
-
-<!-- <advanced-input value="x" suggest="single"></advanced-input> -->
+<!-- <advanced-input multiline id="email"></advanced-input> -->
 
 <script type="module">
   import * as advancedInput from '../index.js';
+  throw 'ignore';
 
   const cands = [
     'Made with Custom Elements',

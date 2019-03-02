@@ -83,6 +83,15 @@ Similarly, any autocomplete suggestion will be rendered like this:
 
 The minimum CSS to ensure this works [in the example CSS file](example.css).
 
+## Notes
+
+* While the advanced input retains the user's previous selection, you must ensure the element is focused before changing it yourself, e.g.:
+
+```js
+    input.focus();  // required, or selection might fail
+    input.setSelectionRange(0, 3);
+```
+
 ## TODOs
 
 * Not all events are documented yet

@@ -224,15 +224,22 @@ export const upgrade = (input, render) => {
   // not fire inside a shadow root.
   util.drag(input, contentChangeHint);
 
-  const focusEvents = 'mousedown touchstart focus';
-  const focusChangeHint = util.dedup(input, focusEvents, (events) => {
-    if (events.has('mousedown') || events.has('touchstart')) {
-      // Do nothing, the user has clicked or tapped to select on the input. Respect the selection
-      // and scrollLeft of the user.
-    } else if (events.has('focus')) {
-      // Focus has occured (not because of pointer), reset last known selection and scroll.
+  // If the user clicked the input, don't reset its selection.
+  let pointerTimeout = 0;
+  const pointerHandler = (ev) => {
+    if (!pointerTimeout) {
+      pointerTimeout = window.setTimeout(() => {
+        pointerTimeout = 0;
+      });
+    }
+  };
+  input.addEventListener('mousedown', pointerHandler);
+  input.addEventListener('touchstart', pointerHandler);
+  input.addEventListener('focus', (ev) => {
+    if (!pointerTimeout) {
+      // Focus has occured but not via a pointer. Reset last known selection and scroll. 
       input.setSelectionRange(state.selectionStart, state.selectionEnd, state.selectionDirection);
-      input.scrollLeft = state.scrollLeft;  // Safari also reset on focus
+      input.scrollLeft = state.scrollLeft;  // Safari needs this on focus
     }
   });
 
@@ -311,23 +318,30 @@ export const upgrade = (input, render) => {
      * @param {{start: number, end: number}=} target to apply at, or selection
      */
     replace(text, target={start: state.selectionStart, end: state.selectionEnd}) {
+      const expected = input.value.substr(0, target.start) + text + input.value.substr(target.end);
+
+      this.select(target, () => {
+        if (!document.execCommand('insertText', false, text) || input.value !== expected) {
+          // execCommand isn't supported in HTML form elements (e.g. Firefox)
+          input.value = expected;
+          input.dispatchEvent(new CustomEvent('change'));
+        } else {
+          // execCommand generates 'input' event
+        }
+      });
+    },
+
+    /**
+     * @param {{start: number, end: number}} target to select
+     * @param {?function(): void=} handler to run
+     */
+    select(target, handler=null) {
       const prevFocus = document.activeElement;
 
       input.focus();
       input.setSelectionRange(target.start, target.end);
 
-      const expected = input.value.substr(0, target.start) + text + input.value.substr(target.end);
-      if (!document.execCommand('insertText', false, text) || input.value !== expected) {
-        // execCommand isn't supported in HTML form elements (e.g. Firefox)
-        input.value = expected;
-        input.dispatchEvent(new CustomEvent('change'));
-      } else {
-        // execCommand generates 'input' event
-      }
-
-      const localDrift = drift.bind(null, target.start, target.end, text);
-      state.selectionStart = localDrift(state.selectionStart);
-      state.selectionEnd = localDrift(state.selectionEnd);
+      handler && handler();
 
       if (prevFocus && prevFocus !== input) {
         prevFocus.focus();
