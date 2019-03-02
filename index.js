@@ -125,10 +125,23 @@ export const upgrade = (input, render) => {
     const rangeSelection = (input.selectionEnd > input.selectionStart);
 
     if (anyChange) {
+      let selectionDirection = input.selectionDirection;
+      if (selectionDirection === 'none' && rangeSelection) {
+        // browsers don't always report this with mouse input
+        if (!selectionChange) {
+          // selection didn't change, use previous guess
+          selectionDirection = state.selectionDirection || selectionDirection;
+        } else if (input.selectionStart === state.selectionStart) {
+          selectionDirection = 'forward';   // start was same, end (right) moved
+        } else {
+          selectionDirection = 'backward';  // end was same, start (left) moved
+        }
+      }
+
       // retain in case the element is blurred
       state.selectionStart = input.selectionStart;
       state.selectionEnd = input.selectionEnd;
-      state.selectionDirection = input.selectionDirection;
+      state.selectionDirection = selectionDirection;
       state.value = input.value;
 
       // write `data-selection` to element
@@ -236,6 +249,17 @@ export const upgrade = (input, render) => {
     let dir = +1;
 
     switch (ev.key) {
+    case 'Escape':
+      if (state.selectionStart === state.selectionEnd) {
+        break;
+      } else if (state.selectionDirection === 'backward') {
+        input.setSelectionRange(state.selectionStart, state.selectionStart);
+      } else {
+        input.setSelectionRange(state.selectionEnd, state.selectionEnd);
+      }
+      ev.preventDefault();
+      break;
+
     case 'ArrowUp':
     case 'Up':
       dir = -1;
