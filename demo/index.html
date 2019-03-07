@@ -144,6 +144,11 @@ body {
     const l = input.value.length;
     controller.replace(word);
   });
+  document.getElementById('update-start').addEventListener('click', (ev) => {
+    const word = document.getElementById('content').value;
+    const l = input.value.length;0
+    controller.replace(word, {start: 0, end: 3});
+  });
 
   document.getElementById('select-all').addEventListener('click', (ev) => {
     // TODO(samthor): This is just ignored/reset by Chrome.
@@ -160,6 +165,7 @@ body {
 
 <button id="select-all">Select 0-3</button>
 <button id="update">Write text</button>
+<button id="update-start">Write at 0-3</button>
 <input type="text" id="content" placeholder="Text to write" value="Test value" autofocus />
 
 <p>Misc test that could be selected</p>
@@ -199,11 +205,10 @@ advanced-input:focus-within::after {
 </style>
 
 
-<!-- <advanced-input multiline id="email"></advanced-input> -->
+<advanced-input multiline id="email"></advanced-input>
 
 <script type="module">
   import * as advancedInput from '../index.js';
-  throw 'ignore';
 
   const cands = [
     'Made with Custom Elements',

@@ -25,8 +25,10 @@ export const event = Object.seal({
 const drift = (low, high, text, where) => {
   if (where >= high) {
     where = where - (high - low) + text.length;  // after
-  } else if (where > low) {
-    where = low + text.length;  // during
+  } else if (where <= low + text.length) {
+    // during, retain
+  } else {
+    where = low + text.length;  // during but after length, go to end
   }
   return where;
 };
@@ -71,6 +73,8 @@ export const upgrade = (input, render) => {
     markup: new Map(),
   };
 
+  let annotationEls = [document.createDocumentFragment()];
+
   const autocompleteEl = document.createElement('span');
   autocompleteEl.className = 'autocomplete';
 
@@ -109,6 +113,17 @@ export const upgrade = (input, render) => {
   input.addEventListener('wheel', viewportChangeHint, {passive: true});
   input.addEventListener('scroll', viewportChangeHint, {passive: true});
 
+  const retainForBlur = (selectionDirection = undefined) => {
+    if (selectionDirection !== undefined) {
+      state.selectionDirection = selectionDirection;
+      state.value = input.value;
+    } else {
+      state.value = undefined;  // used by non-deduped 'focusout' handler to force redraw
+    }
+    state.selectionStart = input.selectionStart;
+    state.selectionEnd = input.selectionEnd;
+  };
+
   const contentEvents = 'change keydown keypress input value select click contextmenu mousedown touchstart';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     viewportChangeHint(true);  // most things cause viewport to change
@@ -139,10 +154,7 @@ export const upgrade = (input, render) => {
       }
 
       // retain in case the element is blurred
-      state.selectionStart = input.selectionStart;
-      state.selectionEnd = input.selectionEnd;
-      state.selectionDirection = selectionDirection;
-      state.value = input.value;
+      retainForBlur(selectionDirection);
 
       // write `data-selection` to element
       if (rangeSelection) {
@@ -186,7 +198,7 @@ export const upgrade = (input, render) => {
       })
     });
 
-    annotations.forEach(({start, length, className}) => {
+    annotationEls = annotations.map(({start, length, className}) => {
       const align = document.createElement('div');
       align.className = '_align';
       align.textContent = state.value.substr(0, start);  // include trailing space
@@ -197,6 +209,8 @@ export const upgrade = (input, render) => {
       align.appendChild(span);
 
       render.insertBefore(align, render.firstChild);
+
+      return span;
     });
 
     // Find and render as much of the autocomplete is remaining.
@@ -224,19 +238,10 @@ export const upgrade = (input, render) => {
   // not fire inside a shadow root.
   util.drag(input, contentChangeHint);
 
-  // If the user clicked the input, don't reset its selection.
-  let pointerTimeout = 0;
-  const pointerHandler = (ev) => {
-    if (!pointerTimeout) {
-      pointerTimeout = window.setTimeout(() => {
-        pointerTimeout = 0;
-      });
-    }
-  };
-  input.addEventListener('mousedown', pointerHandler);
-  input.addEventListener('touchstart', pointerHandler);
-  input.addEventListener('focus', (ev) => {
-    if (!pointerTimeout) {
+  const focusHint = util.dedup(input, 'mousedown touchstart focus', (events) => {
+    if (events.has('mousedown') || events.has('touchstart')) {
+      // Do nothing, focus has occured via user interaction.
+    } else {
       // Focus has occured but not via a pointer. Reset last known selection and scroll. 
       input.setSelectionRange(state.selectionStart, state.selectionEnd, state.selectionDirection);
       input.scrollLeft = state.scrollLeft;  // Safari needs this on focus
@@ -245,6 +250,10 @@ export const upgrade = (input, render) => {
 
   // Non-deduped focusout handler, to fix scrollLeft on parting input.
   input.addEventListener('focusout', (ev) => {
+    // Retain state at moment of blur. Otherwise, a corner case occurs with buttons pressed while
+    // the input has focus, and the selection is lost.
+    retainForBlur();
+
     // This still flashes on Safari because it implements rAF wrong:
     // https://bugs.webkit.org/show_bug.cgi?id=177484
     input.scrollLeft = state.scrollLeft;
@@ -311,29 +320,52 @@ export const upgrade = (input, render) => {
     }
   });
 
+  window._state = state;
+
   return {
+
+    /**
+     * @return {{x: number, y: number}} approx cursor position _within_ typer
+     */
+    cursor() {
+      const selected = annotationEls[0];
+      const out = {
+        x: selected.offsetLeft - input.scrollLeft,
+        y: selected.offsetTop - input.scrollTop,
+      };
+      return out;
+    },
 
     /**
      * @param {string} text to insert
      * @param {{start: number, end: number}=} target to apply at, or selection
      */
-    replace(text, target={start: state.selectionStart, end: state.selectionEnd}) {
+    replace(text, target) {
+      target = target || {start: state.selectionStart, end: state.selectionEnd};
       const expected = input.value.substr(0, target.start) + text + input.value.substr(target.end);
 
       this.select(target, () => {
-        if (!document.execCommand('insertText', false, text) || input.value !== expected) {
-          // execCommand isn't supported in HTML form elements (e.g. Firefox)
+        if (document.execCommand('insertText', false, text) && input.value === expected) {
+          // execCommand generates 'input' event, don't dispatch
+        } else {
+          // execCommand didn't work, is unsupported in HTML form elements (e.g. Firefox)
           input.value = expected;
           input.dispatchEvent(new CustomEvent('change'));
-        } else {
-          // execCommand generates 'input' event
         }
+
+        // nb. This means that e.g. replacing "abc" with "def" will attempt to retain the cursor
+        // position, say if it was directly after 'a'. This isn't the behavior that Emojityper
+        // usually wants, as this is a replacement that should focus _after_.
+        const d = drift.bind(null, target.start, target.end, text);
+        const selectionStart = d(state.selectionStart);
+        const selectionEnd = d(state.selectionEnd);
+        input.setSelectionRange(selectionStart, selectionEnd, state.selectionDirection);
       });
     },
 
     /**
      * @param {{start: number, end: number}} target to select
-     * @param {?function(): void=} handler to run
+     * @param {?function(): void=} handler to run _during_ selection
      */
     select(target, handler=null) {
       const prevFocus = document.activeElement;
