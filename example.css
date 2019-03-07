@@ -36,6 +36,7 @@
   /* place markup at the same place as, but behind the input */
   position: absolute;
   z-index: -1;
+  width: 100%;  /* firefox needs this otherwise it shrinks */
 }
 
 .holder > .render > ._align > span {
