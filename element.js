@@ -62,6 +62,7 @@ textarea#input {
 ._align {
   position: absolute;
   z-index: -1;
+  width: 100%;
 }
 ._align > span {
   box-sizing: border-box;

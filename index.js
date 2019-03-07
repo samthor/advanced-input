@@ -198,6 +198,8 @@ export const upgrade = (input, render) => {
       })
     });
 
+    // TODO(samthor): Even in single-line mode, we create nodes that match the full text
+    // in all annotation cases. This should be O(1) so we space out duplicates.
     annotationEls = annotations.map(({start, length, className}) => {
       const align = document.createElement('div');
       align.className = '_align';
@@ -207,6 +209,9 @@ export const upgrade = (input, render) => {
       span.className = className;
       span.textContent = state.value.substr(start, length);
       align.appendChild(span);
+
+      const rest = document.createTextNode(state.value.substr(start + length));
+      align.appendChild(rest);
 
       render.insertBefore(align, render.firstChild);
 
@@ -290,16 +295,8 @@ export const upgrade = (input, render) => {
       }
 
       if (input.localName === 'textarea') {
-        // .. check textarea content if the caller wants to disable nav
-        let check;
-        if (dir === -1) {
-          check = input.value.substr(0, input.selectionStart);
-        } else {
-          check = input.value.substr(input.selectionEnd);
-        }
-        if (check.indexOf('\n') !== -1) {
-          break;
-        }
+        // TODO: can we determine if we're on top or bottom line of textarea?
+        break;
       }
 
       ev.preventDefault();  // disable normal up/down behavior to change focus
