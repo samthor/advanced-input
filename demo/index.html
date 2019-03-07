@@ -80,8 +80,9 @@ body {
 .holder ._align {
   position: absolute;
   z-index: -1;
-  visibility: hidden;
   width: 100%;
+  word-break: break-word;  /* for textarea, but safe otherwise */
+  visibility: hidden;
 }
 
 .holder ._align > span {

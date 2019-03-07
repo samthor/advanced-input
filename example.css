@@ -37,6 +37,7 @@
   position: absolute;
   z-index: -1;
   width: 100%;  /* firefox needs this otherwise it shrinks */
+  word-break: break-word;  /* makes browsers match firefox */
 }
 
 .holder > .render > ._align > span {
