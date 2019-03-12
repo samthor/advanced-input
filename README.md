@@ -92,7 +92,8 @@ The minimum CSS to ensure this works [in the example CSS file](example.css).
     input.setSelectionRange(0, 3);
 ```
 
-* Edge and IE don't set the `.scrollLeft` property of `<input>` correctly.
+* EdgeHTML and IE don't set the `.scrollLeft` property of `<input>`, so long inputs may not render correctly in these browsers.
+There's various workarounds but the solution might be to use a "single-line" `<textarea>` with a handler that replaces newlines.
 
 ## TODOs
 
