@@ -63,20 +63,8 @@ const autocompleteSuffix = (value, from, autocomplete) => {
 
 
 export const upgrade = (input, render) => {
-  const inputScrollLeft = 'createTextRange' in input ? () => {
-    if (input.scrollLeft) {
-      console.debug('IE/Edge: got valid scrollLeft in IE mode', input.scrollLeft);
-      return input.scrollLeft;  // not sure why we're here then
-    }
-
-    // IE/Edge mode
-    const range = inputElement.createTextRange();
-    console.debug('IE/Edge: got textRange', range, 'clientLeft', input.clientLeft);
-    return range.left;
-  } : () => input.scrollLeft;
-
   const state = {
-    scrollLeft: inputScrollLeft(),
+    scrollLeft: input.scrollLeft,
     selectionStart: -1,
     selectionEnd: -1,
     selectionDirection: '',
@@ -97,19 +85,18 @@ export const upgrade = (input, render) => {
     const checkForFrames = 20;  // run for this many frames after last change
 
     return util.checker((frames) => {
-      const scrollLeft = inputScrollLeft();
-      if (!scrollLeft && !util.isActive(input)) {
+      if (!input.scrollLeft && !util.isActive(input)) {
         // handle browsers setting scrollLeft to zero while non-focused
         input.scrollLeft = state.scrollLeft;
       } else {
-        state.scrollLeft = scrollLeft;
+        state.scrollLeft = input.scrollLeft;
       }
 
       // Adjust translate based on zoom, needed for WebKit-origin browsers. Round to the nearest 5%
       // (Firefox does single %, but it's not effected, this value will always be 1).
       const ratio = Math.round((window.outerWidth / window.innerWidth) * 20) / 20;
 
-      const style = `translate(${-scrollLeft * ratio}px)`;
+      const style = `translate(${-input.scrollLeft * ratio}px)`;
       if (style !== render.style.transform) {
         render.style.transform = style;
         return true;
@@ -346,7 +333,7 @@ export const upgrade = (input, render) => {
     cursor() {
       const selected = annotationEls[0];
       const out = {
-        x: selected.offsetLeft - inputScrollLeft(),
+        x: selected.offsetLeft - input.scrollLeft,
         y: selected.offsetTop - input.scrollTop,
       };
       return out;
