@@ -199,7 +199,7 @@ export const upgrade = (input, render) => {
     });
 
     // TODO(samthor): Even in single-line mode, we create nodes that match the full text
-    // in all annotation cases. This should be O(1) so we space out duplicates.
+    // in most annotation cases. This should be O(1) so we space out duplicates.
     annotationEls = annotations.map(({start, length, className}) => {
       const align = document.createElement('div');
       align.className = '_align';
@@ -210,8 +210,10 @@ export const upgrade = (input, render) => {
       span.textContent = state.value.substr(start, length);
       align.appendChild(span);
 
-      const rest = document.createTextNode(state.value.substr(start + length));
-      align.appendChild(rest);
+      if (length) {
+        const rest = document.createTextNode(state.value.substr(start + length));
+        align.appendChild(rest);
+      }
 
       render.insertBefore(align, render.firstChild);
 
