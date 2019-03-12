@@ -92,6 +92,8 @@ The minimum CSS to ensure this works [in the example CSS file](example.css).
     input.setSelectionRange(0, 3);
 ```
 
+* Edge and IE don't set the `.scrollLeft` property of `<input>` correctly.
+
 ## TODOs
 
 * Not all events are documented yet
