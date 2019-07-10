@@ -207,6 +207,23 @@ export const upgrade = (input, render) => {
       })
     });
 
+    // Find and render as much of the autocomplete is remaining.
+    if (!rangeSelection) {
+      const found = autocompleteSuffix(state.value, state.selectionEnd, state.autocomplete);
+      if (found >= 0) {
+        const suffix = state.autocomplete.substr(found);
+        autocompleteEl.textContent = '\u200b' + suffix;  // zero-width space here
+        render.appendChild(autocompleteEl);
+      }
+      if (found) {
+        annotations.push({
+          start: input.value.length - found,
+          length: found,
+          className: 'trailer',
+        });
+      }
+    }
+
     // TODO(samthor): Even in single-line mode, we create nodes that match the full text
     // in most annotation cases. This should be O(1) so we space out duplicates.
     annotationEls = annotations.map(({start, length, className}) => {
@@ -232,16 +249,6 @@ export const upgrade = (input, render) => {
 
       return span;
     });
-
-    // Find and render as much of the autocomplete is remaining.
-    if (!rangeSelection) {
-      const found = autocompleteSuffix(state.value, state.selectionEnd, state.autocomplete);
-      if (found >= 0) {
-        const suffix = state.autocomplete.substr(found);
-        autocompleteEl.textContent = '\u200b' + suffix;  // zero-width space here
-        render.appendChild(autocompleteEl);
-      }
-    }
 
     // Inform the textarea of how big we actually are.
     // nb. This code all relies on the current position/size.
