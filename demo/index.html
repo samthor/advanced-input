@@ -68,7 +68,6 @@ body {
   white-space: pre;
 }
 .holder textarea ~ .render {
-  white-space: pre-wrap;
   overflow-wrap: break-word;
 }
 .holder .render .autocomplete {
@@ -107,21 +106,21 @@ body {
 
   const holder = document.createElement('div');
   holder.className = 'holder';
-  document.body.appendChild(holder);
+  document.body.append(holder);
 
   const input = document.createElement('textarea');
   input.className = 'input';
-  holder.appendChild(input);
+  holder.append(input);
   input.value = 'This is a very 🍻 long string for testing that contains stuff and emoji.';
   input.value = 'x he';
 
   const focus = document.createElement('div');
   focus.className = 'focus';
-  holder.appendChild(focus);
+  holder.append(focus);
 
   const target = document.createElement('div');
   target.className = 'render';
-  holder.appendChild(target);
+  holder.append(target);
 
   import * as advancedInput from '../index.js';
   input.setSelectionRange(0, 0);  // nb. causes Safari to focus input
@@ -152,14 +151,16 @@ body {
 
   document.getElementById('select-all').addEventListener('click', (ev) => {
     // TODO(samthor): This is just ignored/reset by Chrome.
-    const prev = document.activeElement;
-    input.focus();
+    // const prev = document.activeElement;
+//    input.focus();
     input.setSelectionRange(0, 3);
-    prev.focus();
+    // prev.focus();
   });
 
   window.input = input;
   controller.suggest = 'hello';
+
+  document.body.append(document.createElement('input'));
 
 </script>
 

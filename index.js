@@ -63,6 +63,9 @@ const autocompleteSuffix = (value, from, autocomplete) => {
 
 
 export const upgrade = (input, render) => {
+  const multiline = (input.localName === 'textarea');
+  const actualSetSelectionRange = input.setSelectionRange.bind(input);  // we replace this later
+
   const state = {
     scrollLeft: input.scrollLeft,
     selectionStart: -1,
@@ -237,7 +240,7 @@ export const upgrade = (input, render) => {
     }
 
     // Inform the textarea of how big we actually are.
-    if (input.localName === 'textarea') {
+    if (multiline) {
       render.appendChild(heightEl);  // nb. render now includes autocomplete
       const renderLines = ~~(render.offsetHeight / heightEl.offsetHeight);
       input.setAttribute('rows', Math.max(1, renderLines));
@@ -249,15 +252,47 @@ export const upgrade = (input, render) => {
   // If a user is click or touch-dragging, this is changing the input selection and scroll.
   // We can't use 'selectionchange', even though it is supported on Chrome and Safari, as it does
   // not fire inside a shadow root.
+  // TODO: only needed for <input>?
   util.drag(input, contentChangeHint);
 
-  const focusHint = util.dedup(input, 'mousedown touchstart focus', (events) => {
-    if (events.has('mousedown') || events.has('touchstart')) {
-      // Do nothing, focus has occured via user interaction.
+  // Check for focus, but not via a pointer. Reset last known selection and scroll. This is moot
+  // for <textarea> (but only in Chrome), as there's no implicit select behavior.
+  const dedupFocus = util.dedup(input, 'mousedown touchstart focus', (events) => {
+    if (events.has('mousedown') || events.has('touchstart') || events.has(null)) {
+      // Do nothing, focus has occured via user interaction or setSelectionRange
     } else {
-      // Focus has occured but not via a pointer. Reset last known selection and scroll. 
-      input.setSelectionRange(state.selectionStart, state.selectionEnd, state.selectionDirection);
+      actualSetSelectionRange(state.selectionStart, state.selectionEnd, state.selectionDirection);
       input.scrollLeft = state.scrollLeft;  // Safari needs this on focus
+    }
+  });
+
+  // This awkwardly does a couple of things.
+  //   1) Replaces setSelectionRange so that, when called, the dedupFocus dedup above doesn't nuke
+  //      programmatic changes (since browsers might not be able to distinguish tab-and-select-all).
+  //   2) Ensures that programmatic selection while the input is focused performs the right thing,
+  //      by hinting to the contentChangeHint (by a CustomEvent) (for Safari).
+  //   3) Ensures that the browser doesn't ignore changes while focused (for Chrome), by calling
+  //      actualSetSelectionRange when the real related 'select' arrives (so our _own_ CustomEvent
+  //      gets ignored).
+  let pendingSetSelectionRange = null;
+  input.setSelectionRange = (...args) => {
+    dedupFocus();  // 1) prevent nuking programmatic changes
+    actualSetSelectionRange(...args);
+
+    pendingSetSelectionRange = args;
+    window.requestAnimationFrame(() => {
+      // 2) hint to contentChangeHint (which also runs on rAF timing)
+      if (pendingSetSelectionRange === args) {
+        pendingSetSelectionRange = null;
+        input.dispatchEvent(new CustomEvent('select'));
+      }
+    });
+  };
+  input.addEventListener('select', (ev) => {
+    // 3) the 'real' select in Chrome (while focused) is wrong
+    if (pendingSetSelectionRange) {
+      actualSetSelectionRange(...pendingSetSelectionRange);
+      pendingSetSelectionRange = null;
     }
   });
 
@@ -282,9 +317,9 @@ export const upgrade = (input, render) => {
       if (state.selectionStart === state.selectionEnd) {
         break;
       } else if (state.selectionDirection === 'backward') {
-        input.setSelectionRange(state.selectionStart, state.selectionStart);
+        actualSetSelectionRange(state.selectionStart, state.selectionStart);
       } else {
-        input.setSelectionRange(state.selectionEnd, state.selectionEnd);
+        actualSetSelectionRange(state.selectionEnd, state.selectionEnd);
       }
       ev.preventDefault();
       break;
@@ -302,7 +337,7 @@ export const upgrade = (input, render) => {
         break;
       }
 
-      if (input.localName === 'textarea') {
+      if (multiline) {
         // TODO: can we determine if we're on top or bottom line of textarea?
         break;
       }
@@ -405,7 +440,7 @@ export const upgrade = (input, render) => {
     },
 
     /**
-     * @param {strin} s to match against
+     * @param {string} s to match against
      * @return {number} how much of this autocomplete string matches, -1 for invalid
      */
     autocompleteMatch(s) {
