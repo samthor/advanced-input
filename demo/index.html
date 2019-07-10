@@ -66,13 +66,11 @@ body {
   pointer-events: none;
   user-select: none;
   white-space: pre;
-/*
-// if this is a textarea, use this
+}
+.holder textarea ~ .render {
   white-space: pre-wrap;
   overflow-wrap: break-word;
-*/
 }
-
 .holder .render .autocomplete {
   opacity: 0.5;
 }
@@ -111,7 +109,7 @@ body {
   holder.className = 'holder';
   document.body.appendChild(holder);
 
-  const input = document.createElement('input');
+  const input = document.createElement('textarea');
   input.className = 'input';
   holder.appendChild(input);
   input.value = 'This is a very 🍻 long string for testing that contains stuff and emoji.';
@@ -190,7 +188,7 @@ advanced-input {
   border-radius: 6px;
   position: relative;
 }
-advanced-input[multiline] {
+advanced-input[multiple] {
   padding: 6px 12px;
 }
 advanced-input:focus-within::after {
@@ -207,7 +205,7 @@ advanced-input:focus-within::after {
 </style>
 
 
-<advanced-input multiline id="email"></advanced-input>
+<advanced-input multiple id="email"></advanced-input>
 
 <script type="module">
   import * as advancedInput from '../index.js';

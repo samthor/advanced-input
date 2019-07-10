@@ -13,7 +13,7 @@ const rightRe = new RegExp(`^(?:${regexpGroup})*`, 'u');
 
 export default class extends HTMLElement {
   static get observedAttributes() {
-    return ['suggest', 'value', 'multiline'];
+    return ['suggest', 'value', 'multiple'];
   }
 
   constructor() {
@@ -98,7 +98,7 @@ textarea#input {
   top: 0;
   left: 0;
   right: 0;
-  /* don't set bottom, in case we're a multiline and need to measure */
+  /* don't set bottom, in case we're a multiple and need to measure */
   pointer-events: none;
   -webkit-user-select: none;
   user-select: none;
@@ -118,7 +118,7 @@ textarea + #target {
   <div id="target"></div>
 </div>
 `;
-    this._input = this.ownerDocument.createElement(this.multiline ? 'textarea' : 'input');
+    this._input = this.ownerDocument.createElement(this.multiple ? 'textarea' : 'input');
     this._input.value = this.getAttribute('value');
     this._input.setAttribute('id', 'input');
 
@@ -156,15 +156,15 @@ textarea + #target {
     this._controller.suggest = v;
   }
 
-  get multiline() {
-    return this.hasAttribute('multiline');
+  get multiple() {
+    return this.hasAttribute('multiple');
   }
 
-  set multiline(v) {
+  set multiple(v) {
     if (v) {
-      this.setAttribute('multiline', this.getAttribute('multiline') || '');
+      this.setAttribute('multiple', this.getAttribute('multiple') || '');
     } else {
-      this.removeAttribute('multiline');
+      this.removeAttribute('multiple');
     }
   }
 
@@ -205,7 +205,7 @@ textarea + #target {
 
   attributeChangedCallback(name, oldValue, newValue) {
     switch (name) {
-      case 'multiline':
+      case 'multiple':
         // we need to replace the input with a textarea or vice versa
         this._updateInputType();
         break;

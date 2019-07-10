@@ -79,6 +79,8 @@ export const upgrade = (input, render) => {
   autocompleteEl.className = 'autocomplete';
 
   const heightEl = document.createElement('span');
+  heightEl.toggleAttribute('aria-hidden', true);
+  heightEl.style.display = 'inline-block';  // needed to correctly compare to textarea height
   heightEl.textContent = '\u200b';
 
   const viewportChangeHint = (() => {
