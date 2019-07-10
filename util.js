@@ -132,3 +132,7 @@ export const isActive = (target) => {
   return root.activeElement === target;
 };
 
+const hasFocusRootNode = (el) => el.getRootNode().activeElement === el;
+const hasFocusSimple = (el) => document.activeElement === el;
+
+export const hasFocus = (Node.prototype.getRootNode ? hasFocusRootNode : hasFocusSimple);

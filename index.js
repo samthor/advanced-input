@@ -217,6 +217,10 @@ export const upgrade = (input, render) => {
       const span = document.createElement('span');
       span.className = className;
       span.textContent = state.value.substr(start, length);
+      if (!span.textContent.length) {
+        // otherwise inline element might not have a valid offsetHeight
+        span.style.display = 'inline-block';
+      }
       align.appendChild(span);
 
       if (length) {
@@ -240,10 +244,12 @@ export const upgrade = (input, render) => {
     }
 
     // Inform the textarea of how big we actually are.
+    // nb. This code all relies on the current position/size.
     if (multiline) {
       render.appendChild(heightEl);  // nb. render now includes autocomplete
-      const renderLines = ~~(render.offsetHeight / heightEl.offsetHeight);
-      input.setAttribute('rows', Math.max(1, renderLines));
+      const lineHeight = heightEl.offsetHeight;
+      const renderLines = Math.max(1, ~~(render.offsetHeight / lineHeight));
+      input.setAttribute('rows', renderLines);
     }
   });
 
@@ -331,18 +337,32 @@ export const upgrade = (input, render) => {
 
     case 'ArrowDown':
     case 'Down':
-      const ce = new CustomEvent(event.nav, {detail: dir, cancelable: true});
-      input.dispatchEvent(ce);
-      if (!ce.defaultPrevented) {
-        break;
-      }
-
       if (multiline) {
-        // TODO: can we determine if we're on top or bottom line of textarea?
-        break;
+        if (dir === -1 && state.selectionStart === 0) {
+          // great, at start
+        } else if (dir === +1 && state.selectionEnd >= input.value.length) {
+          // great, at end
+        } else if (annotationEls[0] && heightEl.parentNode && input.rows !== 1) {
+          // ... if multiline, everything is sane, and it isn't just on one single line _anyway_
+          // then prevent sending nav unless the user is on top or bottom of textarea
+          const lineHeight = heightEl.offsetHeight;
+          const selectionEl = annotationEls[0];
+          if (dir === -1) {
+            const startLine = ~~(selectionEl.offsetTop / lineHeight);
+            if (startLine !== 0) {
+              break;  // nothing to do, not on line=0
+            }
+          } else if (input.offsetHeight - lineHeight > selectionEl.offsetTop + selectionEl.offsetHeight) {
+            break;  // not on the last line
+          }
+        }
       }
 
-      ev.preventDefault();  // disable normal up/down behavior to change focus
+      const ce = new CustomEvent(event.nav, {detail: dir});
+      input.dispatchEvent(ce);
+      if (!util.hasFocus(input)) {
+        ev.preventDefault();  // focus changed, disable default up/down behavior
+      }
       break;
 
     case ' ':
