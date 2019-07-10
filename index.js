@@ -328,6 +328,8 @@ export const upgrade = (input, render) => {
     switch (ev.key) {
     case 'Escape':
       if (state.selectionStart === state.selectionEnd) {
+        const l = input.value.length;
+        actualSetSelectionRange(l, l);
         break;
       } else if (state.selectionDirection === 'backward') {
         actualSetSelectionRange(state.selectionStart, state.selectionStart);
