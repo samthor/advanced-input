@@ -308,7 +308,7 @@ export const upgrade = (input, render) => {
     // the input has focus, and the selection is lost.
     retainForBlur();
 
-    // This still flashes on Safari because it implements rAF wrong:
+    // This still flashes on older versions of Safari because rAF was implemented incorrectly:
     // https://bugs.webkit.org/show_bug.cgi?id=177484
     input.scrollLeft = state.scrollLeft;
     viewportChangeHint();
