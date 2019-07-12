@@ -275,6 +275,7 @@ export const upgrade = (input, render) => {
   //      programmatic changes (since browsers might not be able to distinguish tab-and-select-all).
   //   2) Ensures that the browser doesn't ignore changes while focused or _losing_ focus (for
   //      Chrome), by calling actualSetSelectionRange in the next frame.
+  //   3) Makes sure a 'select' event is fired (needed for Safari).
   let hintFrame = 0;
   input.setSelectionRange = (...args) => {
     dedupFocus();  // 1) prevent nuking programmatic changes
@@ -284,9 +285,13 @@ export const upgrade = (input, render) => {
     window.clearTimeout(hintFrame);
     hintFrame = window.setTimeout(() => {
       if (input.selectionStart !== args[0] || input.selectionEnd !== args[1]) {
-        actualSetSelectionRange(...args);  // 2) the 'real' select in Chrome (while focused) is wrong
+        // 2) if we were focused, the selection is wrong by end of frame
+        actualSetSelectionRange(...args);
       }
     }, 0);
+
+    // 3) Safari doesn't get a select event for some reason
+    input.dispatchEvent(new CustomEvent('select'));
   };
 
   // Non-deduped focusout handler, to fix scrollLeft on parting input.
