@@ -122,17 +122,6 @@ export const upgrade = (input, render) => {
   input.addEventListener('wheel', viewportChangeHint, {passive: true});
   input.addEventListener('scroll', viewportChangeHint, {passive: true});
 
-  const retainForBlur = (selectionDirection = undefined) => {
-    if (selectionDirection !== undefined) {
-      state.selectionDirection = selectionDirection;
-      state.value = input.value;
-    } else {
-      state.value = undefined;  // used by non-deduped 'focusout' handler to force redraw
-    }
-    state.selectionStart = input.selectionStart;
-    state.selectionEnd = input.selectionEnd;
-  };
-
   const contentEvents = 'change keydown keypress input value select click contextmenu mousedown touchstart';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     viewportChangeHint(true);  // most things cause viewport to change
@@ -162,8 +151,10 @@ export const upgrade = (input, render) => {
         }
       }
 
-      // retain in case the element is blurred
-      retainForBlur(selectionDirection);
+      state.value = input.value;
+      state.selectionDirection = selectionDirection;
+      state.selectionStart = input.selectionStart;
+      state.selectionEnd = input.selectionEnd;
 
       // write `data-selection` to element
       if (rangeSelection) {
@@ -282,39 +273,24 @@ export const upgrade = (input, render) => {
   // This awkwardly does a couple of things.
   //   1) Replaces setSelectionRange so that, when called, the dedupFocus dedup above doesn't nuke
   //      programmatic changes (since browsers might not be able to distinguish tab-and-select-all).
-  //   2) Ensures that programmatic selection while the input is focused performs the right thing,
-  //      by hinting to the contentChangeHint (by a CustomEvent) (for Safari).
-  //   3) Ensures that the browser doesn't ignore changes while focused (for Chrome), by calling
-  //      actualSetSelectionRange when the real related 'select' arrives (so our _own_ CustomEvent
-  //      gets ignored).
-  let pendingSetSelectionRange = null;
+  //   2) Ensures that the browser doesn't ignore changes while focused or _losing_ focus (for
+  //      Chrome), by calling actualSetSelectionRange in the next frame.
+  let hintFrame = 0;
   input.setSelectionRange = (...args) => {
     dedupFocus();  // 1) prevent nuking programmatic changes
     actualSetSelectionRange(...args);
 
-    pendingSetSelectionRange = args;
-    window.requestAnimationFrame(() => {
-      // 2) hint to contentChangeHint (which also runs on rAF timing)
-      if (pendingSetSelectionRange === args) {
-        pendingSetSelectionRange = null;
-        input.dispatchEvent(new CustomEvent('select'));
+    // nb. can't check for focus here as it might be transitioning away
+    window.clearTimeout(hintFrame);
+    hintFrame = window.setTimeout(() => {
+      if (input.selectionStart !== args[0] || input.selectionEnd !== args[1]) {
+        actualSetSelectionRange(...args);  // 2) the 'real' select in Chrome (while focused) is wrong
       }
-    });
+    }, 0);
   };
-  input.addEventListener('select', (ev) => {
-    // 3) the 'real' select in Chrome (while focused) is wrong
-    if (pendingSetSelectionRange) {
-      actualSetSelectionRange(...pendingSetSelectionRange);
-      pendingSetSelectionRange = null;
-    }
-  });
 
   // Non-deduped focusout handler, to fix scrollLeft on parting input.
   input.addEventListener('focusout', (ev) => {
-    // Retain state at moment of blur. Otherwise, a corner case occurs with buttons pressed while
-    // the input has focus, and the selection is lost.
-    retainForBlur();
-
     // This still flashes on older versions of Safari because rAF was implemented incorrectly:
     // https://bugs.webkit.org/show_bug.cgi?id=177484
     input.scrollLeft = state.scrollLeft;

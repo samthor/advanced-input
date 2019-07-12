@@ -7,7 +7,7 @@ const passiveOption = {passive: true};
  * @param {!Node} target to attach handlers to
  * @param {!IArrayLike<string>|string} events to dedup
  * @param {function(!Set<string>): void} handler to run in rAF
- * @return {function(string=): void} to manually trigger on upcoming rAF
+ * @return {function(): void} to manually trigger on upcoming rAF
  */
 export const dedup = (target, events, handler) => {
   if (typeof events === 'string') {
