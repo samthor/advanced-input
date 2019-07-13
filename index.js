@@ -44,6 +44,7 @@ const autocompleteSuffix = (value, from, autocomplete) => {
   if (!autocomplete) {
     return -1;
   }
+  value = value.trimEnd();
 
   // FIXME(samthor): case-insensitivity is opinionated.
   // FIXME(samthor): it would be nice to also only start on word boundary
@@ -181,7 +182,7 @@ export const upgrade = (input, render) => {
     }
 
     // rerender text (always do this for now, clears annotations)
-    render.textContent = state.value;
+    render.textContent = state.value.trimEnd();
 
     const annotations = [
       {
@@ -195,7 +196,7 @@ export const upgrade = (input, render) => {
         start,
         length: end - start,
         className: '_' + value,
-      })
+      });
     });
 
     // Find and render as much of the autocomplete is remaining.
@@ -219,7 +220,7 @@ export const upgrade = (input, render) => {
     // in most annotation cases. This should be O(1) so we space out duplicates.
     annotationEls = annotations.map(({start, length, className}) => {
       const align = document.createElement('div');
-      align.className = '_align';
+      align.className = 'align';
       align.textContent = state.value.substr(0, start);  // include trailing space
 
       const span = document.createElement('span');
@@ -327,16 +328,16 @@ export const upgrade = (input, render) => {
 
     case 'ArrowDown':
     case 'Down':
+      const selectionEl = annotationEls[0];
       if (multiline) {
         if (dir === -1 && state.selectionStart === 0) {
           // great, at start
         } else if (dir === +1 && state.selectionEnd >= input.value.length) {
           // great, at end
-        } else if (annotationEls[0] && heightEl.parentNode && input.rows !== 1) {
+        } else if (selectionEl && heightEl.parentNode && input.rows !== 1) {
           // ... if multiline, everything is sane, and it isn't just on one single line _anyway_
           // then prevent sending nav unless the user is on top or bottom of textarea
           const lineHeight = heightEl.offsetHeight;
-          const selectionEl = annotationEls[0];
           if (dir === -1) {
             const startLine = ~~(selectionEl.offsetTop / lineHeight);
             if (startLine !== 0) {
@@ -348,15 +349,20 @@ export const upgrade = (input, render) => {
         }
       }
 
-      const ce = new CustomEvent(event.nav, {detail: dir});
-      input.dispatchEvent(ce);
+      const at = selectionEl ? selectionEl.offsetLeft - input.scrollLeft : 0;
+      const navEvent = new CustomEvent(event.nav, {detail: {dir, at}});
+      input.dispatchEvent(navEvent);
       if (!util.hasFocus(input)) {
         ev.preventDefault();  // focus changed, disable default up/down behavior
       }
       break;
 
     case ' ':
-      input.dispatchEvent(new CustomEvent(event.space, {detail: false}));
+      const spaceEvent = new CustomEvent(event.space, {detail: false, cancelable: true});
+      input.dispatchEvent(spaceEvent);
+      if (spaceEvent.defaultPrevented) {
+        ev.preventDefault();
+      }
       break;
     }
   });
@@ -366,6 +372,7 @@ export const upgrade = (input, render) => {
     // was it a 229 or no code, and was the typed character a space?
     if (ev.keyCode === 229 || !ev.keyCode) {
       // TODO: possibly record hasPendingSpace for future arriving suggestions
+      // FIXME: disable space if defaultPrevented
       input.dispatchEvent(new CustomEvent(event.space, {detail: true}));
     }
   });
@@ -389,44 +396,45 @@ export const upgrade = (input, render) => {
     /**
      * @param {string} text to insert
      * @param {{start: number, end: number}=} target to apply at, or selection
+     * @param {boolean=} wholeReplace if true, does not drift cursor relative to update
      */
-    replace(text, target) {
-      target = target || {start: state.selectionStart, end: state.selectionEnd};
+    replace(text, target=null, wholeReplace=false) {
+      const selection = !target;
+      if (selection) {
+        target = {start: state.selectionStart, end: state.selectionEnd};
+      }
+      const selectionStartAfter = state.selectionStart;  // retain for later
+
       const expected = input.value.substr(0, target.start) + text + input.value.substr(target.end);
-
-      this.select(target, () => {
-        if (document.execCommand('insertText', false, text) && input.value === expected) {
-          // execCommand generates 'input' event, don't dispatch
-        } else {
-          // execCommand didn't work, is unsupported in HTML form elements (e.g. Firefox)
-          input.value = expected;
-          input.dispatchEvent(new CustomEvent('change'));
-        }
-
-        // nb. This means that e.g. replacing "abc" with "def" will attempt to retain the cursor
-        // position, say if it was directly after 'a'. This isn't the behavior that Emojityper
-        // usually wants, as this is a replacement that should focus _after_.
-        const d = drift.bind(null, target.start, target.end, text);
-        const selectionStart = d(state.selectionStart);
-        const selectionEnd = d(state.selectionEnd);
-        input.setSelectionRange(selectionStart, selectionEnd, state.selectionDirection);
-      });
-    },
-
-    /**
-     * @param {{start: number, end: number}} target to select
-     * @param {?function(): void=} handler to run _during_ selection
-     */
-    select(target, handler=null) {
-      const prevFocus = document.activeElement;
 
       input.focus();
       input.setSelectionRange(target.start, target.end);
 
-      handler && handler();
+      if (document.execCommand('insertText', false, text) && input.value === expected) {
+        // execCommand generates 'input' event, don't dispatch
+      } else {
+        // execCommand didn't work, is unsupported in HTML form elements (e.g. Firefox)
+        input.value = expected;
+        input.dispatchEvent(new CustomEvent('change'));
+      }
 
-      if (prevFocus && prevFocus !== input) {
-        prevFocus.focus();
+      if (!wholeReplace) {
+        // nb. This means that e.g. replacing "abc" with "def" will attempt to retain the cursor
+        // position, say if it was directly after 'a'.
+        const d = drift.bind(null, target.start, target.end, text);
+        const selectionStart = d(state.selectionStart);
+        const selectionEnd = d(state.selectionEnd);
+        input.setSelectionRange(selectionStart, selectionEnd, state.selectionDirection);
+      } else if (selection) {
+        // Select entire new range (old selection => new selection).
+        typer.setSelectionRange(target.start, target.start + text.length);
+      } else if (target.start === target.end || selectionStartAfter > target.start) {
+        // This was a zero-width replace, or the selection started after the replacement point.
+        // Place the cursor after the new text.
+        typer.setSelectionRange(target.start + text.length, target.start + text.length);
+      } else {
+        // Put the cursor on the left. No drift or modification required.
+        typer.setSelectionRange(selectionStartAfter, selectionStartAfter);
       }
     },
 
@@ -458,6 +466,13 @@ export const upgrade = (input, render) => {
         return -1;
       }
       return autocompleteSuffix(input.value, input.selectionStart, s);
+    },
+
+    /**
+     * Hints that the input should rerender. Required if e.g. the autocomplete changes.
+     */
+    hint() {
+      contentChangeHint();
     },
 
     /**

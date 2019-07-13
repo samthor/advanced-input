@@ -59,30 +59,30 @@ textarea#input {
   display: block;
 }
 
-._align {
+.align {
   position: absolute;
   z-index: -1;
   width: 100%;
   word-break: break-word;
 }
-._align > span {
+.align > span {
   box-sizing: border-box;
   visibility: visible;
 }
-._align > span:not(:empty) {
+.align > span:not(:empty) {
   margin: -2px -1px;
   padding: 2px 1px;
   border-radius: 2px;
   color: transparent;
 }
-._align > span.selected {
+.align > span.selected {
   background: var(--selection-color, #33fc);
 }
 
-._align > span._highlight {
+.align > span._highlight {
   background: var(--highlight-color, #ccca);
 }
-._align > span._test {
+.align > span._test {
   background: red;
 }
 

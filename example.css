@@ -32,7 +32,7 @@
   visibility: hidden;  /* DON'T draw normal rendered text */
 }
 
-.holder > .render > ._align {
+.holder > .render > .align {
   /* place markup at the same place as, but behind the input */
   position: absolute;
   z-index: -1;
@@ -40,7 +40,7 @@
   word-break: break-word;  /* makes browsers match firefox */
 }
 
-.holder > .render > ._align > span {
+.holder > .render > .align > span {
   visibility: visible;  /* .. but draw special markup */
   color: red;
 }
