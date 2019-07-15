@@ -73,7 +73,7 @@ export const upgrade = (input, render) => {
     selectionEnd: -1,
     selectionDirection: '',
     value: input.value,
-    autocomplete: '',
+    suggest: '',
     markup: new Map(),
   };
 
@@ -201,9 +201,9 @@ export const upgrade = (input, render) => {
 
     // Find and render as much of the autocomplete is remaining.
     if (!rangeSelection) {
-      const found = autocompleteSuffix(state.value, state.selectionEnd, state.autocomplete);
+      const found = autocompleteSuffix(state.value, state.selectionEnd, state.suggest);
       if (found >= 0) {
-        const suffix = state.autocomplete.substr(found);
+        const suffix = state.suggest.substr(found);
         autocompleteEl.textContent = '\u200b' + suffix;  // zero-width space here
         render.appendChild(autocompleteEl);
       }
@@ -458,6 +458,19 @@ export const upgrade = (input, render) => {
     },
 
     /**
+     * @param {string} className to find mark
+     * @return {?{start: number, end: number}}
+     */
+    find(className) {
+      const prev = state.markup.get(className);
+      if (prev === undefined) {
+        return null;
+      }
+      // copy result
+      return {start: prev.start, end: prev.end};
+    },
+
+    /**
      * @param {string} s to match against
      * @return {number} how much of this autocomplete string matches, -1 for invalid
      */
@@ -469,17 +482,10 @@ export const upgrade = (input, render) => {
     },
 
     /**
-     * Hints that the input should rerender. Required if e.g. the autocomplete changes.
-     */
-    hint() {
-      contentChangeHint();
-    },
-
-    /**
      * @param {?string} v to suggest
      */
     set suggest(v) {
-      state.autocomplete = v || '';
+      state.suggest = v || '';
       contentChangeHint();
     },
 
@@ -487,7 +493,7 @@ export const upgrade = (input, render) => {
      * @return {string}
      */
     get suggest() {
-      return state.autocomplete;
+      return state.suggest;
     },
 
   };

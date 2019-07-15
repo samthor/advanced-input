@@ -238,7 +238,7 @@ advanced-input:focus-within::after {
   email.addEventListener('keydown', (ev) => {
     if (ev.key === 'Tab' && email.suggest) {
       const match = email.suggestMatch(email.suggest);
-      email.value += email.suggest.substr(match);
+      email.value = email.value.trimRight() + email.suggest.substr(match);
       email.suggest = null;
       ev.preventDefault();
     }
