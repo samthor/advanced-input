@@ -397,6 +397,7 @@ export const upgrade = (input, render) => {
      * @param {string} text to insert
      * @param {{start: number, end: number}=} target to apply at, or selection
      * @param {boolean=} wholeReplace if true, does not drift cursor relative to update
+     * @return {{start: number, end: number}} updated replaced range
      */
     replace(text, target=null, wholeReplace=false) {
       const selection = !target;
@@ -436,6 +437,8 @@ export const upgrade = (input, render) => {
         // Put the cursor on the left. No drift or modification required.
         typer.setSelectionRange(selectionStartAfter, selectionStartAfter);
       }
+
+      return {start: target.start, end: target.start + text.length};
     },
 
     /**
