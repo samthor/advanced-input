@@ -108,7 +108,7 @@ body {
   holder.className = 'holder';
   document.body.append(holder);
 
-  const input = document.createElement('textarea');
+  const input = document.createElement('input');
   input.className = 'input';
   holder.append(input);
   input.value = 'This is a very 🍻 long string for testing that contains stuff and emoji.';
@@ -153,14 +153,30 @@ body {
     // TODO(samthor): This is just ignored/reset by Chrome.
     // const prev = document.activeElement;
 //    input.focus();
-    input.setSelectionRange(0, 3);
+//input.selectionStart =
+input.selectionStart = 0;
+input.selectionEnd = 3;
+//    input.setSelectionRange(0, 3);
     // prev.focus();
   });
 
   window.input = input;
   controller.suggest = 'hello';
 
-  document.body.append(document.createElement('input'));
+  const simpleInput = document.createElement('input');
+  const button = document.createElement('button');
+  button.textContent = 'stuff';
+
+  document.body.append(simpleInput, button);
+
+button.onclick = () => {
+  simpleInput.focus();
+  window.setTimeout(() => {
+    console.info('selectionStart', 0);
+    simpleInput.selectionStart = 3;
+    simpleInput.selectionEnd = 4;
+  }, 3000);
+};
 
 </script>
 
