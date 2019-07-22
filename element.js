@@ -1,19 +1,12 @@
 import * as advancedInput from './index.js';
 
-let regexpGroup = `[\\p{Letter}\\p{Number}\\p{Punctuation}]|\\uDBBF\\uDFE3|¯`;
-
-try {
-  new RegExp(regexpGroup, 'u');
-} catch (e) {
-  regexpGroup = '\\S';
-}
-
+const regexpGroup = `[\\p{Letter}\\p{Number}\\p{Punctuation}]|\\uDBBF\\uDFE3|¯`;
 const leftRe = new RegExp(`(?:${regexpGroup})*$`, 'u');
 const rightRe = new RegExp(`^(?:${regexpGroup})*`, 'u');
 
 export default class extends HTMLElement {
   static get observedAttributes() {
-    return ['suggest', 'value', 'multiple'];
+    return ['suggest', 'value'];
   }
 
   constructor() {
@@ -29,11 +22,10 @@ export default class extends HTMLElement {
 #holder {
   position: relative;
   font-variant-ligatures: none;
-  overflow: hidden;
   z-index: 0;
 }
-#input {
-  display: inline-block;
+textarea {
+  display: block;
   width: 100%;
   font: inherit;
   border: 0;
@@ -43,45 +35,43 @@ export default class extends HTMLElement {
   overflow: hidden;
   resize: none;  /* in case we are textarea */
 }
-input#input {
-  text-indent: var(--text-indent, 12px);
-}
-#input:focus {
+textarea:focus {
   outline: none;
 }
-#input::selection {
+textarea::selection {
   background: transparent;
 }
-#input::-moz-selection {
+textarea::-moz-selection {
   background: transparent;
-}
-textarea#input {
-  display: block;
 }
 
 .align {
   position: absolute;
-  z-index: -1;
   width: 100%;
   word-break: break-word;
 }
 .align > span {
   box-sizing: border-box;
   visibility: visible;
-}
-.align > span:not(:empty) {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
   margin: -2px -1px;
   padding: 2px 1px;
   border-radius: 2px;
   color: transparent;
+  z-index: -1;
 }
+.align > span:empty {
+  opacity: 0;
+}
+
 .align > span.selected {
   background: var(--selection-color, #33fc);
 }
-
 .align > span._highlight {
   background: var(--highlight-color, #ccca);
 }
+
 .align > span._test {
   background: red;
 }
@@ -91,61 +81,52 @@ textarea#input {
   visibility: visible;
 }
 
-#target {
-  visibility: hidden;
+#render {
   z-index: -1;
+  visibility: hidden;
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   /* don't set bottom, in case we're a multiple and need to measure */
+
   pointer-events: none;
   -webkit-user-select: none;
   user-select: none;
-}
 
-input + #target {
-  text-indent: var(--text-indent, 12px);
-  white-space: pre;
-}
-textarea + #target {
+  /* for multiple */
   white-space: pre-wrap;
-  overflow-wrap: break-word;
 }
 
 </style>
 <div id="holder">
-  <div id="target"></div>
+  <textarea id="textarea"></textarea>
+  <div id="render"></div>
 </div>
 `;
-    this._input = this.ownerDocument.createElement(this.multiple ? 'textarea' : 'input');
-    this._input.value = this.getAttribute('value');
-    this._input.setAttribute('id', 'input');
+    this._textarea = root.getElementById('textarea');
+    this._textarea.value = this.getAttribute('value');
 
-    const holder = root.getElementById('holder');
-    holder.insertBefore(this._input, holder.firstChild);
-
-    const target = root.getElementById('target');
-    this._controller = advancedInput.upgrade(this._input, target);
+    const render = root.getElementById('render');
+    this._controller = advancedInput.upgrade(this._textarea, render);
     this._controller.suggest = this.getAttribute('suggest');
 
-    this._input.addEventListener(advancedInput.event.select, this._select.bind(this));
-    this._input.addEventListener(advancedInput.event.nav, this._nav.bind(this));
+    this._textarea.addEventListener(advancedInput.event.select, this._select.bind(this));
+    this._textarea.addEventListener(advancedInput.event.nav, this._nav.bind(this));
 
     this.addEventListener('click', (ev) => {
       if (!ev.defaultPrevented) {
-        this._input.focus();
+        this._textarea.focus();
       }
     });
   }
 
   get value() {
-    return this._input.value;
+    return this._textarea.value;
   }
 
   set value(v) {
-    // matches <input>, don't update attribute
-    this._input.value = v;
+    this._textarea.value = v;
   }
 
   get suggest() {
@@ -179,13 +160,13 @@ textarea + #target {
   _select(ev) {
     this.dispatchEvent(new CustomEvent(ev.type));
 
-    if (this._input.selectionStart !== this._input.selectionEnd) {
+    if (this._textarea.selectionStart !== this._textarea.selectionEnd) {
       this._controller.mark('highlight');
       return;  // ignore range selection
     }
 
-    const value = this._input.value;
-    const anchor = this._input.selectionStart;
+    const value = this._textarea.value;
+    const anchor = this._textarea.selectionStart;
     const leftMatch = leftRe.exec(value.substr(0, anchor));
     const rightMatch = rightRe.exec(value.substr(anchor));
 
@@ -205,15 +186,11 @@ textarea + #target {
 
   attributeChangedCallback(name, oldValue, newValue) {
     switch (name) {
-      case 'multiple':
-        // we need to replace the input with a textarea or vice versa
-        this._updateInputType();
-        break;
       case 'suggest':
         this._controller.suggest = newValue;
         break;
       case 'value':
-        this._input.value = newValue;
+        this._textarea.value = newValue;
         break;
     }
   }
