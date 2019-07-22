@@ -13,6 +13,9 @@ export const event = Object.seal({
 });
 
 
+const scrollLeftWithTransform = true;
+
+
 /*
  * This looks for three classes of events:
  *
@@ -64,7 +67,12 @@ const autocompleteSuffix = (value, from, autocomplete) => {
 
 
 export const upgrade = (input, render) => {
-  const multiline = (input.localName === 'textarea');
+  const constructor = input.constructor;  // either HTMLInputElement or HTMLTextAreaElement
+  if (!(constructor === HTMLInputElement || constructor === HTMLTextAreaElement)) {
+    throw new Error(`cannot upgrade element of type: ${prototype.toString()}`);
+  }
+  const prototype = constructor.prototype;
+  const multiline = (constructor === HTMLTextAreaElement);
   const actualSetSelectionRange = input.setSelectionRange.bind(input);  // we replace this later
 
   const state = {
@@ -102,11 +110,24 @@ export const upgrade = (input, render) => {
       // (Firefox does single %, but it's not effected, this value will always be 1).
       const ratio = Math.round((window.outerWidth / window.innerWidth) * 20) / 20;
 
-      const style = `translate(${-input.scrollLeft * ratio}px)`;
-      if (style !== render.style.transform) {
-        render.style.transform = style;
-        return true;
+      const computedOffsetLeft = -input.scrollLeft * ratio;
+
+      if (scrollLeftWithTransform) {
+        // faster but creates a z-index stacking context
+        const style = `translate(${computedOffsetLeft}px)`;
+        if (style !== render.style.transform) {
+          render.style.transform = style;
+          return true;
+        }
+      } else {
+        // might be useful if no stacking context is wanted (so annotations can be above AND below)
+        const style = `${computedOffsetLeft}px`;
+        if (style !== render.style.marginLeft) {
+          render.style.marginLeft = style;
+          return true;
+        }
       }
+
       return frames < checkForFrames;
     });
   })();
@@ -182,7 +203,7 @@ export const upgrade = (input, render) => {
     }
 
     // rerender text (always do this for now, clears annotations)
-    render.textContent = state.value.trimEnd();
+    render.textContent = state.value;  // don't trim, need to align heightEl
 
     const annotations = [
       {
@@ -280,12 +301,15 @@ export const upgrade = (input, render) => {
   let hintFrame = 0;
   input.setSelectionRange = (...args) => {
     dedupFocus();  // 1) prevent nuking programmatic changes
-    actualSetSelectionRange(...args);
+    actualSetSelectionRange(...args);  // this will fail if args.length < 2
 
     // nb. can't check for focus here as it might be transitioning away
     window.clearTimeout(hintFrame);
     hintFrame = window.setTimeout(() => {
-      if (input.selectionStart !== args[0] || input.selectionEnd !== args[1]) {
+      const change = input.selectionStart !== args[0] ||
+          input.selectionEnd !== args[1] ||
+          (args.length > 2 && input.selectionDirection !== args[2]);  // optional selectionDirection
+      if (change) {
         // 2) if we were focused, the selection is wrong by end of frame
         actualSetSelectionRange(...args);
       }
@@ -294,6 +318,21 @@ export const upgrade = (input, render) => {
     // 3) Safari doesn't get a select event for some reason
     input.dispatchEvent(new CustomEvent('select'));
   };
+
+  // For reason 2) above, we need to intercept the old-style approach of updating selection.
+  const propertiesToOverride = ['selectionStart', 'selectionEnd', 'selectionDirection'];
+  propertiesToOverride.forEach((prop) => {
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, prop);
+    Object.defineProperty(input, prop, {
+      set(v) {
+        descriptor.set.call(input, v);
+        input.setSelectionRange(input.selectionStart, input.selectionEnd, input.selectionDirection);
+      },
+      get() {
+        return descriptor.get.call(input);
+      },
+    });
+  });
 
   // Non-deduped focusout handler, to fix scrollLeft on parting input.
   input.addEventListener('focusout', (ev) => {
@@ -376,8 +415,6 @@ export const upgrade = (input, render) => {
       input.dispatchEvent(new CustomEvent(event.space, {detail: true}));
     }
   });
-
-  window._state = state;
 
   return {
 
