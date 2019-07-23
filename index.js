@@ -111,6 +111,7 @@ export const upgrade = (input, render) => {
   const prototype = constructor.prototype;
   const multiline = (constructor === HTMLTextAreaElement);
   const actualSetSelectionRange = input.setSelectionRange.bind(input);  // we replace this later
+  const actualSurroundingLine = multiline ? surroundingLine : () => ({start: 0, end: input.value.length});
 
   const state = {
     scrollLeft: input.scrollLeft,
@@ -259,11 +260,14 @@ export const upgrade = (input, render) => {
 
     // Find and render as much of the autocomplete is remaining.
     if (!rangeSelection) {
-      const range = surroundingLine(state.value, state.selectionEnd);
-      console.debug('surrounding:`' + state.value.substring(range.start, range.end) + '`');
+      const range = actualSurroundingLine(state.value, state.selectionEnd);
 
-      const found = autocompleteSuffix(state.value, state.selectionEnd, state.suggest);
+      const checkValue = state.value.substring(range.start, range.end);
+      const checkCursor = Math.min(state.selectionEnd - range.start, range.end);
+
+      const found = autocompleteSuffix(checkValue, checkCursor, state.suggest);
       if (found >= 0) {
+        // TODO: always inserts at actual end, not at line-whitespace
         const suffix = state.suggest.substr(found);
         autocompleteEl.textContent = '\u200b' + suffix;  // zero-width space here
         render.appendChild(autocompleteEl);
@@ -558,7 +562,14 @@ export const upgrade = (input, render) => {
       if (input.selectionStart !== input.selectionEnd) {
         return -1;
       }
-      return autocompleteSuffix(input.value, input.selectionStart, s);
+
+      // TODO: matches runtime code to display suffix
+      const range = actualSurroundingLine(input.value, input.selectionEnd);
+
+      const checkValue = state.value.substring(range.start, range.end);
+      const checkCursor = Math.min(state.selectionEnd - range.start, range.end);
+
+      return autocompleteSuffix(checkValue, checkCursor, s);
     },
 
     /**
