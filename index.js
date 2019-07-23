@@ -37,6 +37,43 @@ const drift = (low, high, text, where) => {
 };
 
 
+const previousLineAt = (value, index) => {
+  if (index <= 0) {
+    return 0;
+  }
+  const found = value.lastIndexOf('\n', index - 1);
+  if (found !== -1) {
+    return found + 1;
+  }
+  return 0;
+};
+
+
+const surroundingLine = (value, cursor) => {
+  let start = previousLineAt(value, cursor);
+
+  let nextIndex = value.indexOf('\n', cursor);
+  if (nextIndex === -1) {
+    nextIndex = value.length;
+  }
+
+  // if there's only whitespace on this line, walk back to previous line
+  while (start > 0) {
+    const check = value.substring(start, nextIndex);
+    if (check.trim().length) {
+      break;
+    }
+    nextIndex = start - 1;
+    start = previousLineAt(value, start - 1);
+  }
+
+  return {
+    start,
+    end: nextIndex,
+  };
+};
+
+
 /**
  * @param {string} value to autocomplete from
  * @param {string} from cursor position
@@ -222,6 +259,9 @@ export const upgrade = (input, render) => {
 
     // Find and render as much of the autocomplete is remaining.
     if (!rangeSelection) {
+      const range = surroundingLine(state.value, state.selectionEnd);
+      console.debug('surrounding:`' + state.value.substring(range.start, range.end) + '`');
+
       const found = autocompleteSuffix(state.value, state.selectionEnd, state.suggest);
       if (found >= 0) {
         const suffix = state.suggest.substr(found);
