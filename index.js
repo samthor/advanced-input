@@ -132,10 +132,22 @@ export const upgrade = (input, render) => {
   heightEl.style.display = 'inline-block';  // needed to correctly compare to textarea height
   heightEl.textContent = '\u200b';
 
+  const rectifyRows = multiline ? () => {
+    render.appendChild(heightEl);  // nb. render now includes autocomplete
+    const lineHeight = heightEl.offsetHeight;
+
+    // Use round as Chrome sometimes gives us off-by-one errors in height for zoomed elements.
+    const renderLines = Math.max(1, Math.round(render.offsetHeight / lineHeight));
+
+    input.setAttribute('rows', renderLines);
+  } : () => {};
+
   const viewportChangeHint = (() => {
     const checkForFrames = 20;  // run for this many frames after last change
 
     return util.checker((frames) => {
+      // It's possible to have scrollLeft in a textarea if `white-space: pre`, so we have to run
+      // this even for the multiline case.
       if (!input.scrollLeft && !util.isActive(input)) {
         // handle browsers setting scrollLeft to zero while non-focused
         input.scrollLeft = state.scrollLeft;
@@ -143,29 +155,28 @@ export const upgrade = (input, render) => {
         state.scrollLeft = input.scrollLeft;
       }
 
-      // Adjust translate based on zoom, needed for WebKit-origin browsers. Round to the nearest 5%
-      // (Firefox does single %, but it's not effected, this value will always be 1).
-      const ratio = Math.round((window.outerWidth / window.innerWidth) * 20) / 20;
-
-      const computedOffsetLeft = -input.scrollLeft * ratio;
+      const computedOffsetLeft = -input.scrollLeft;
+      let alwaysRetry = false;
 
       if (scrollLeftWithTransform) {
         // faster but creates a z-index stacking context
         const style = `translate(${computedOffsetLeft}px)`;
         if (style !== render.style.transform) {
           render.style.transform = style;
-          return true;
+          alwaysRetry = true;
         }
       } else {
         // might be useful if no stacking context is wanted (so annotations can be above AND below)
         const style = `${computedOffsetLeft}px`;
         if (style !== render.style.marginLeft) {
           render.style.marginLeft = style;
-          return true;
+          alwaysRetry = true;
         }
       }
 
-      return frames < checkForFrames;
+      rectifyRows();
+
+      return alwaysRetry || frames < checkForFrames;
     });
   })();
 
@@ -303,14 +314,9 @@ export const upgrade = (input, render) => {
       return span;
     });
 
-    // Inform the textarea of how big we actually are.
+    // Finally, inform the textarea of how big we actually are.
     // nb. This code all relies on the current position/size.
-    if (multiline) {
-      render.appendChild(heightEl);  // nb. render now includes autocomplete
-      const lineHeight = heightEl.offsetHeight;
-      const renderLines = Math.max(1, ~~(render.offsetHeight / lineHeight));
-      input.setAttribute('rows', renderLines);
-    }
+    rectifyRows();
   });
 
   contentChangeHint();
