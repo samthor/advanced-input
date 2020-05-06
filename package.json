@@ -1,8 +1,9 @@
 {
   "name": "advanced-input",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Augment <input> and <textarea> elements with advanced features",
   "main": "index.js",
+  "module": "index.js",
   "repository": "git@github.com:samthor/advanced-input.git",
   "author": "Sam Thorogood <sam.thorogood@gmail.com>",
   "license": "Apache-2.0"
