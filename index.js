@@ -270,8 +270,8 @@ export const upgrade = (input, render) => {
 
     // Find and render as much of the autocomplete is remaining.
     if (!rangeSelection) {
-      const range = surroundingLine(state.value, state.selectionEnd);
-      console.debug('surrounding:`' + state.value.substring(range.start, range.end) + '`');
+      // const range = surroundingLine(state.value, state.selectionEnd);
+      // console.debug('surrounding:`' + state.value.substring(range.start, range.end) + '`');
 
       const found = autocompleteSuffix(state.value, state.selectionEnd, state.suggest);
       if (found >= 0) {
