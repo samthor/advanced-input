@@ -18,6 +18,8 @@
   padding: 0;
   margin: 0;
   border: 0;
+  overflow: hidden;  /* firefox has an off-by-one bug for emoji */
+  resize: none;  /* in case we are textarea */
 }
 
 .holder > .render {

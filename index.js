@@ -192,6 +192,14 @@ export const upgrade = (input, render) => {
   input.addEventListener('wheel', viewportChangeHint, {passive: true});
   input.addEventListener('scroll', viewportChangeHint, {passive: true});
 
+  // Firefox sometimes moves us around, but we cannot scroll up/down. This cannot be passive,
+  // otherwise we don't get a chance to intercept the invalid value.
+  input.addEventListener('scroll', () => {
+    if (input.scrollTop) {
+      input.scrollTop = 0;
+    }
+  });
+
   const contentEvents = 'change keydown keypress input value select click contextmenu mousedown touchstart';
   const contentChangeHint = util.dedup(input, contentEvents, (events) => {
     viewportChangeHint(true);  // most things cause viewport to change
