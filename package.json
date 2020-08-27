@@ -1,6 +1,6 @@
 {
   "name": "advanced-input",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Augment <input> and <textarea> elements with advanced features",
   "main": "index.js",
   "module": "index.js",
