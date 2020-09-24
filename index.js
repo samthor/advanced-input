@@ -396,6 +396,14 @@ export const upgrade = (input, render) => {
     viewportChangeHint();
   });
 
+  const dispatchSpaceEvent = (ev) => {
+    const spaceEvent = new CustomEvent(event.space, {detail: false, cancelable: true});
+    input.dispatchEvent(spaceEvent);
+    if (spaceEvent.defaultPrevented) {
+      ev.preventDefault();
+    }
+  };
+
   // Non-deduped keydown handler, for intercepting space and others.
   input.addEventListener('keydown', (ev) => {
     let dir = +1;
@@ -451,22 +459,16 @@ export const upgrade = (input, render) => {
       break;
 
     case ' ':
-      const spaceEvent = new CustomEvent(event.space, {detail: false, cancelable: true});
-      input.dispatchEvent(spaceEvent);
-      if (spaceEvent.defaultPrevented) {
-        ev.preventDefault();
-      }
+      dispatchSpaceEvent(ev);
       break;
     }
   });
 
-  // Non-deduped keyup handler, for space on mobile browsers ('dreaded keycode 229').
-  input.addEventListener('keyup', (ev) => {
-    // was it a 229 or no code, and was the typed character a space?
-    if (ev.keyCode === 229 || !ev.keyCode) {
-      // TODO: possibly record hasPendingSpace for future arriving suggestions
-      // FIXME: disable space if defaultPrevented
-      input.dispatchEvent(new CustomEvent(event.space, {detail: true}));
+  // Non-deduped textInput handler, for space on mobile browsers ('dreaded keycode 229').
+  // Note that this will generate multiple events.
+  input.addEventListener('textInput', (ev) => {
+    if (ev.data === ' ') {
+      dispatchSpaceEvent(ev);
     }
   });
 
