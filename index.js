@@ -397,7 +397,8 @@ export const upgrade = (input, render) => {
   });
 
   const dispatchSpaceEvent = (ev) => {
-    const spaceEvent = new CustomEvent(event.space, {detail: false, cancelable: true});
+    const detail = {shiftKey: ev.shiftKey, metaKey: ev.metaKey, ctrlKey: ev.ctrlKey, altKey: ev.altKey};
+    const spaceEvent = new CustomEvent(event.space, {detail, cancelable: true});
     input.dispatchEvent(spaceEvent);
     if (spaceEvent.defaultPrevented) {
       ev.preventDefault();
@@ -526,14 +527,14 @@ export const upgrade = (input, render) => {
         input.setSelectionRange(selectionStart, selectionEnd, state.selectionDirection);
       } else if (selection) {
         // Select entire new range (old selection => new selection).
-        typer.setSelectionRange(target.start, target.start + text.length);
+        input.setSelectionRange(target.start, target.start + text.length);
       } else if (target.start === target.end || selectionStartAfter > target.start) {
         // This was a zero-width replace, or the selection started after the replacement point.
         // Place the cursor after the new text.
-        typer.setSelectionRange(target.start + text.length, target.start + text.length);
+        input.setSelectionRange(target.start + text.length, target.start + text.length);
       } else {
         // Put the cursor on the left. No drift or modification required.
-        typer.setSelectionRange(selectionStartAfter, selectionStartAfter);
+        input.setSelectionRange(selectionStartAfter, selectionStartAfter);
       }
 
       return {start: target.start, end: target.start + text.length};
