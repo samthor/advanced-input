@@ -117,7 +117,7 @@ export default class AdvancedInputElement extends HTMLElement {
     const controller = build({
 
       nav(dir) {
-        console.warn('nav', dir);
+        console.debug('nav', dir);
         return true;
       },
 

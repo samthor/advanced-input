@@ -193,7 +193,6 @@ export function build(callbacks) {
           // hooray, move!
         } else {
           const lineHeight = heightHelperNode.offsetHeight;
-          console.warn('textArea bottom line', textarea.offsetHeight - lineHeight, 'vs', selectionElement.offsetTop, selectionElement.offsetHeight);
           if (textarea.offsetHeight - lineHeight >= selectionElement.offsetTop + selectionElement.offsetHeight) {
             return;  // not on last line
           }
