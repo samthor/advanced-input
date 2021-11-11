@@ -1,0 +1,24 @@
+<script type="module">
+  import './element.js';
+</script>
+<style>
+  advanced-input::part(selected) {
+    background: blue;
+  }
+  advanced-input {
+    padding: 32px;
+    box-shadow: 0 0 2px red;
+  }
+  body {
+    font-family: Segoe UI,system-ui,-apple-system,sans-serif;
+  }
+</style>
+
+
+<button>Hello</button>
+
+<br />
+<br />
+
+<advanced-input style="max-width: 120px; display: block;" value="Test"></advanced-input>
+

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "noEmit": true,
+
+    // if you'd like to warn if you're using modern features, change these
+    // both to e.g., "es2017"
+    "module": "esnext",
+    "target": "esnext",
+
+    // configure as you like: these are my preferred defaults!
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+  },
+  "include": [
+    // include the JS files you'd like to check here
+    "**/*.js",
+    "**/*.d.ts",
+  ],
+}
