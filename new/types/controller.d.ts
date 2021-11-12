@@ -7,7 +7,7 @@ export interface AdvancedInputController {
 
   trailer: string;
 
-  placeholder: string;
+  minRows: number;
 
   readonly selectionStart: number;
   readonly selectionEnd: number;
@@ -21,13 +21,15 @@ export interface AdvancedInputController {
 
   replaceWith(handler: (was: string) => string, range?: { start: number, end: number }): void;
 
+  cursor(): {x: number, y: number};
+
 }
 
 
 export interface Annotation {
-  start: number,
-  end: number,
-  name: string,
+  start: number;
+  end: number;
+  name: string;
 }
 
 
@@ -39,8 +41,14 @@ export interface Meta {
 }
 
 
+export interface MetaDir extends Meta {
+  dir: -1|1;
+}
+
+
 export interface AdvancedInputCallbacks {
-  nav(dir: -1|1, meta: Meta): boolean;
   update(change: boolean): void;
+  nav(metaDir: MetaDir): boolean;
   spaceKey(meta: Meta): boolean;
 }
+

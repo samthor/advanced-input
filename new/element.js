@@ -1,9 +1,4 @@
 
-// // TODO: might barf in Firefox
-// const regexpGroup = `[\\p{Letter}\\p{Number}\\p{Punctuation}]|\\uDBBF\\uDFE3|¯`;
-// const leftRe = new RegExp(`(?:${regexpGroup})*$`, 'u');
-// const rightRe = new RegExp(`^(?:${regexpGroup})*`, 'u');
-
 import { build } from "./controller.js";
 
 /** @type {() => Node} */
@@ -105,55 +100,59 @@ textarea {
 
 })();
 
-const t = document.createElement('template');
+
+export const eventNames = Object.seal({
+  change: '-adv-change',
+  select: '-adv-select',
+  nav: '-adv-nav',
+  spaceKey: '-adv-spaceKey',
+});
+
 
 export default class AdvancedInputElement extends HTMLElement {
   _controller;
 
   static get observedAttributes() {
-    return ['value', 'placeholder'];
+    return ['value', 'trailer'];
   }
 
   constructor() {
     super();
 
-    const controller = build({
-
-      nav(dir) {
-        console.debug('nav', dir);
-        return true;
-      },
-
-      update(change) {
-        if (change) {
-
-        }
-      },
-
-      spaceKey(meta) {
-        if (meta.shiftKey) {
-          return true;
-        }
-        return false;
+    /** @type {(change: boolean) => void} */
+    const update = (change) => {
+      if (change) {
+        this.dispatchEvent(new CustomEvent(eventNames.change));
       }
+      this.dispatchEvent(new CustomEvent(eventNames.select));
+    };
 
+    /** @type {(name: string) => (detail: any) => boolean} */
+    const buildDispatchHandler = (name) => {
+      return (detail) => {
+        const event = new CustomEvent(name, { detail });
+        this.dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+    };
+
+    const controller = build({
+      update,
+      nav: buildDispatchHandler(eventNames.nav),
+      spaceKey: buildDispatchHandler(eventNames.spaceKey),
     });
 
     this._controller = controller;
-    window._controller = controller;
 
     const root = this.attachShadow({ mode: 'open' });
     root.append(lazyTemplate());
 
     const holder = /** @type {HTMLElement} */ (root.lastElementChild);
     holder.append(this._controller.fragment);
+  }
 
-    // const render = root.getElementById('render');
-    // this._controller = advancedInput.upgrade(this._textarea, render);
-    // this._controller.suggest = this.getAttribute('suggest');
-
-    // this._textarea.addEventListener(advancedInput.event.select, this._select.bind(this));
-    // this._textarea.addEventListener(advancedInput.event.nav, this._nav.bind(this));
+  get controller() {
+    return this._controller;
   }
 
   get value() {
@@ -172,55 +171,12 @@ export default class AdvancedInputElement extends HTMLElement {
     this._controller.trailer = v;
   }
 
-  get placeholder() {
-    return this._controller.placeholder;
-  }
-
-  set placeholder(v) {
-    this._controller.placeholder = v;
-  }
-
   get multiline() {
     return this._controller.multiline;
   }
 
   set multiline(v) {
     this._controller.multiline = v;
-  }
-
-  // get suggest() {
-  //   return this._controller.suggest;
-  // }
-
-  // set suggest(v) {
-  //   this._controller.suggest = v;
-  // }
-
-  _select(ev) {
-    this.dispatchEvent(new CustomEvent(ev.type));
-
-    if (this._textarea.selectionStart !== this._textarea.selectionEnd) {
-      this._controller.mark('highlight');
-      return;  // ignore range selection
-    }
-
-    const value = this._textarea.value;
-    const anchor = this._textarea.selectionStart;
-    const leftMatch = leftRe.exec(value.substr(0, anchor));
-    const rightMatch = rightRe.exec(value.substr(anchor));
-
-    const start = anchor - leftMatch[0].length;
-    const end = anchor + rightMatch[0].length;
-
-    this._controller.mark('highlight', { start, end });
-  }
-
-  _nav(ev) {
-    ev.preventDefault();
-  }
-
-  mark(className, target) {
-    this._controller.mark(className, target);
   }
 
   /**
@@ -234,8 +190,8 @@ export default class AdvancedInputElement extends HTMLElement {
         this.value = newValue ?? '';
         break;
 
-      case 'placeholder':
-        this.placeholder = newValue ?? '';
+      case 'trailer':
+        this.trailer = newValue ?? '';
         break;
     }
   }

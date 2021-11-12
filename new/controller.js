@@ -18,15 +18,20 @@ export function build(callbacks) {
 
   const renderNode = document.createElement('div');
   renderNode.className = 'text sizer';
+  renderNode.setAttribute('aria-hidden', 'true');
 
   const alignHolderNode = document.createElement('div');
+  alignHolderNode.setAttribute('aria-hidden', 'true');
 
-  /** @type {HTMLSpanElement?} */
-  let selectionRangeElement = null;
+  let selectionRangeElement = document.createElement('span');
+
+  // Set up a fake selection element. We don't use this afterwards, it's just so the selection
+  // element above can always exist and be on the page.
+  const fakeInitialHolder = document.createElement('div');
+  fakeInitialHolder.append(selectionRangeElement);
+  alignHolderNode.append(fakeInitialHolder);
 
   const heightHelperNode = document.createElement('span');
-  heightHelperNode.toggleAttribute('aria-hidden', true);
-  heightHelperNode.style.display = 'inline-block';  // needed to correctly compare to textarea height
   heightHelperNode.textContent = '\u200b';
 
   /** @type {Map<string, controllerTypes.Annotation>} */
@@ -39,6 +44,7 @@ export function build(callbacks) {
     /** @type {typeof HTMLTextAreaElement.prototype.selectionDirection} */
     selectionDirection: 'none',
 
+    minRows: 1,
     multiline: false,
     trailer: '',
   };
@@ -50,7 +56,7 @@ export function build(callbacks) {
     // Don't bother with the renderNode, as it tends to get large enough not to matter: just round
     // to avoid off-by-one errors.
     const lineHeight = heightHelperNode.getBoundingClientRect().height;
-    const renderLines = Math.max(1, Math.round(renderNode.offsetHeight / lineHeight));
+    const renderLines = Math.max(1, Math.floor(state.minRows), Math.round(renderNode.offsetHeight / lineHeight));
     textarea.rows = renderLines;
   };
 
@@ -109,6 +115,17 @@ export function build(callbacks) {
         selectionEnd: textarea.selectionEnd,
       });
 
+      // We can just re-render things that are effected by cursor moves. We do this early so the
+      // callbacks can find our position.
+      const selectionAnnotation = {
+        start: Math.min(state.selectionStart, state.selectionEnd),
+        end: Math.max(state.selectionStart, state.selectionEnd),
+        name: 'selected',
+      };
+      const selectionRender = renderAnnotation(state.value, selectionAnnotation);
+      selectionRangeElement?.parentElement?.replaceWith(selectionRender.align);
+      selectionRangeElement = selectionRender.range;
+
       // Something changed, and the value may have changed. Clients can do markup again here.
       // Nothing visible on the controller is changed below (public visible state), we just
       // reconcile the underlying <textarea> after this.
@@ -121,45 +138,31 @@ export function build(callbacks) {
         viewportChangeHint();
       }
 
-      const low = Math.min(state.selectionStart, state.selectionEnd);
-      const high = Math.max(state.selectionStart, state.selectionEnd);
+      if (!valueChange && !pendingMarkupChange) {
+        return;
+      }
+      pendingMarkupChange = false;
 
-      const selectionAnnotation = {
-        start: low,
-        end: high,
-        name: 'selected',
-      };
-      const selectionRender = renderAnnotation(state.value, selectionAnnotation);
+      /** @type {(controllerTypes.Annotation & {text?: string})[]} */
+      const annotations = [...userAnnotations.values()];
 
-      if (valueChange || pendingMarkupChange) {
-        pendingMarkupChange = false;
-
-        /** @type {(controllerTypes.Annotation & {text?: string})[]} */
-        const annotations = [...userAnnotations.values()];
-
-        if (state.trailer) {
-          const trailerAnnotation = {
-            start: state.value.length,
-            end: state.value.length,
-            name: 'trailer',
-            text: state.trailer,
-          };
-          annotations.push(trailerAnnotation);
-        }
-
-        alignHolderNode.textContent = '';
-        alignHolderNode.append(selectionRender.align);
-
-        annotations.forEach((r) => {
-          const { align } = renderAnnotation(state.value, r, r.text);
-          alignHolderNode.append(align);
-        });
-      } else {
-        // We can just re-render things that are effected by cursor moves.
-        selectionRangeElement?.parentElement?.replaceWith(selectionRender.align);
+      if (state.trailer) {
+        const trailerAnnotation = {
+          start: state.value.length,
+          end: state.value.length,
+          name: 'trailer',
+          text: state.trailer,
+        };
+        annotations.push(trailerAnnotation);
       }
 
-      selectionRangeElement = selectionRender.range;
+      alignHolderNode.textContent = '';
+      alignHolderNode.append(selectionRender.align);
+
+      annotations.forEach((r) => {
+        const { align } = renderAnnotation(state.value, r, r.text);
+        alignHolderNode.append(align);
+      });
     } finally {
       duringContentChangeHint = false;
     }
@@ -203,9 +206,13 @@ export function build(callbacks) {
     if (!selectionRangeElement ||
       !verticalKeys.includes(event.key) ||
       event.shiftKey ||
-      state.selectionStart !== state.selectionEnd) {
+      state.selectionStart !== state.selectionEnd ||
+      !callbacks.nav) {
       return;
     }
+
+    /** @type {-1|1} */
+    let dir;
 
     switch (event.key) {
       case 'ArrowUp':
@@ -219,9 +226,7 @@ export function build(callbacks) {
             return;  // nothing to do, not on line=0
           }
         }
-        if (callbacks.nav?.(-1, buildMeta(event))) {
-          event.preventDefault();
-        }
+        dir = -1;
         break;
 
       case 'ArrowDown':
@@ -235,11 +240,18 @@ export function build(callbacks) {
             return;  // not on last line
           }
         }
-        if (callbacks.nav?.(+1, buildMeta(event))) {
-          event.preventDefault();
-        }
+        dir = +1;
         break;
+
+      default:
+        return;  // should never happen
     }
+
+    const metaDir = { dir, ...buildMeta(event) };
+    if (callbacks.nav(metaDir)) {
+      event.preventDefault();
+    }
+
   });
 
   /**
@@ -331,6 +343,11 @@ export function build(callbacks) {
 
     mark(name, annotation) {
       if (annotation) {
+        const prev = userAnnotations.get(name);
+        if (prev && prev.start === annotation.start && prev.end === annotation.end) {
+          return;
+        }
+
         userAnnotations.set(name, { name: `mark-${name}`, ...annotation });
       } else if (userAnnotations.has(name)) {
         userAnnotations.delete(name);
@@ -366,12 +383,25 @@ export function build(callbacks) {
       }
     },
 
-    get placeholder() {
-      return textarea.placeholder;
+    get minRows() {
+      return state.minRows;
     },
 
-    set placeholder(v) {
-      textarea.placeholder = v;
+    set minRows(v) {
+      if (state.minRows !== v) {
+        state.minRows = v;
+        viewportChangeHint();
+      }
+    },
+
+    cursor() {
+      const outerRect = textarea.getBoundingClientRect();
+      const innerRect = selectionRangeElement.getBoundingClientRect();
+
+      return {
+        x: (innerRect.x - outerRect.x) + (innerRect.width / 2),
+        y: (innerRect.y - outerRect.y) + (innerRect.height / 2),
+      };
     },
 
     replaceWith,
