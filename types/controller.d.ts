@@ -26,6 +26,8 @@ export interface AdvancedInputController {
 
   focus(): void;
 
+  selectAll(): void;
+
 }
 
 

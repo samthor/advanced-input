@@ -33,7 +33,7 @@ textarea {
   margin: 0;
   background: transparent;
   overflow: hidden;
-  resize: none;  /* in case we are textarea */
+  resize: none;
   color: currentColor;
   padding: var(--padding, 0);
   box-sizing: border-box;
@@ -65,6 +65,7 @@ textarea::-moz-selection {
 }
 
 .aligner {
+  pointer-events: none;
   position: absolute;
   inset: var(--padding, 0);
 }
@@ -84,9 +85,12 @@ textarea::-moz-selection {
   visibility: visible;
   color: transparent;
 }
-.align span:not(.empty) {
+.align span:not(:empty) {
   margin: 0 -1px;
   padding: 0 1px;
+}
+.align span:empty::before {
+  content: '\u200b';
 }
 
 .align span[part="trailer"] {
@@ -133,19 +137,17 @@ export class AdvancedInputElement extends HTMLElement {
     /** @type {(name: string) => (detail: any) => boolean} */
     const buildDispatchHandler = (name) => {
       return (detail) => {
-        const event = new CustomEvent(name, { detail });
+        const event = new CustomEvent(name, { detail, cancelable: true });
         this.dispatchEvent(event);
         return event.defaultPrevented;
       };
     };
 
-    const controller = build({
+    this._controller = build({
       update,
       nav: buildDispatchHandler(eventNames.nav),
       spaceKey: buildDispatchHandler(eventNames.spaceKey),
     });
-
-    this._controller = controller;
 
     const root = this.attachShadow({ mode: 'open' });
     root.append(lazyTemplate());

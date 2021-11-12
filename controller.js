@@ -137,13 +137,15 @@ export function build(callbacks) {
       // Something changed, and the value may have changed. Clients can do markup again here.
       // Nothing visible on the controller is changed below (public visible state), we just
       // reconcile the underlying <textarea> after this.
-      callbacks.update?.(valueChange);
+      if (selectionChange || valueChange) {
+        callbacks.update?.(valueChange);
 
-      // This might happen as part of the callback, even though it wasn't reset.
-      if (pendingTrailerChange) {
-        renderNode.textContent = textarea.value + '\u200b' + state.trailer;
-        pendingTrailerChange = false;
-        viewportChangeHint();
+        // This might happen as part of the callback, even though it wasn't reset.
+        if (pendingTrailerChange) {
+          renderNode.textContent = textarea.value + '\u200b' + state.trailer;
+          pendingTrailerChange = false;
+          viewportChangeHint();
+        }
       }
 
       if (!valueChange && !pendingMarkupChange) {
@@ -287,8 +289,11 @@ export function build(callbacks) {
       textarea.dispatchEvent(new CustomEvent('change'));
     }
 
+    if (wasSelection) {
+      textarea.setSelectionRange(state.selectionStart, updatedText.length + state.selectionStart);
+    }
     // TODO: restore cursor?
-  }
+  };
 
   // If this is a singleline, then rewrites pastes with newline characters.
   textarea.addEventListener('paste', (event) => {
@@ -421,6 +426,11 @@ export function build(callbacks) {
       textarea.focus();
     },
 
+    selectAll() {
+      textarea.setSelectionRange(0, textarea.value.length);
+      contentChangeHint();
+    },
+
     replaceWith,
 
   };
@@ -438,15 +448,9 @@ function renderAnnotation(value, { start, end, name }, text) {
   align.className = 'align text';
   align.textContent = value.substr(0, start);  // include trailing space
 
-  const annotationValue = text ?? value.substr(start, end - start);
-
   const range = document.createElement('span');
   range.setAttribute('part', name);
-  range.textContent = annotationValue + '\u200b';
-
-  if (!annotationValue) {
-    range.className = 'empty';
-  }
+  range.textContent = text ?? value.substr(start, end - start);
 
   align.appendChild(range);
 
@@ -468,7 +472,9 @@ function dedupListener(target, events, handler) {
 
   /** @type {(event?: Event) => void} */
   const eventHandler = (event) => {
-    seenEvents.add(event?.type ?? '');
+    if (event) {
+      seenEvents.add(event.type);
+    }
 
     if (frame) {
       return;
