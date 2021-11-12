@@ -1,29 +1,29 @@
-import * as advancedInput from './index.js';
 
-const regexpGroup = `[\\p{Letter}\\p{Number}\\p{Punctuation}]|\\uDBBF\\uDFE3|¯`;
-const leftRe = new RegExp(`(?:${regexpGroup})*$`, 'u');
-const rightRe = new RegExp(`^(?:${regexpGroup})*`, 'u');
+import { build } from "./controller.js";
 
-export default class extends HTMLElement {
-  static get observedAttributes() {
-    return ['suggest', 'value'];
-  }
+/** @type {() => Node} */
+const lazyTemplate = (() => {
 
-  constructor() {
-    super();
+  /** @type {HTMLTemplateElement?} */
+  let t = null;
 
-    const root = this.attachShadow({mode: 'open'});
-    root.innerHTML = `
+  return () => {
+    if (t) {
+      return t.content.cloneNode(true);
+    }
+    t = document.createElement('template');
+    t.innerHTML = `
 <style>
 :host {
   display: inline-block;
-  cursor: text;
 }
+
 #holder {
   position: relative;
   font-variant-ligatures: none;
   z-index: 0;
 }
+
 textarea {
   display: block;
   width: 100%;
@@ -34,6 +34,9 @@ textarea {
   background: transparent;
   overflow: hidden;
   resize: none;  /* in case we are textarea */
+  color: currentColor;
+  padding: var(--padding, 0);
+  box-sizing: border-box;
 }
 textarea:focus {
   outline: none;
@@ -44,154 +47,163 @@ textarea::selection {
 textarea::-moz-selection {
   background: transparent;
 }
+.text {
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  overflow-wrap: break-word;
+}
+.text:not(textarea) {
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  visibility: hidden;
+}
 
-.align {
+.sizer {
   position: absolute;
   width: 100%;
-  word-break: break-word;
-}
-.align > span {
-  box-sizing: border-box;
-  visibility: visible;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-  margin: -2px -1px;
-  padding: 2px 1px;
-  border-radius: 2px;
-  color: transparent;
-  z-index: -1;
-}
-.align > span:empty {
-  opacity: 0;
 }
 
-.align > span.selected {
-  background: var(--selection-color, #33fc);
-}
-.align > span._highlight {
-  background: var(--highlight-color, #ccca);
+.aligner {
+  position: absolute;
+  inset: var(--padding, 0);
 }
 
-.align > span._test {
-  background: red;
-}
-
-.autocomplete {
-  opacity: 0.5;
-  visibility: visible;
-}
-
-#render {
-  z-index: -1;
-  visibility: hidden;
+.align {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  /* don't set bottom, in case we're a multiple and need to measure */
+  z-index: -1;
+}
+.align span {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  border-radius: 2px;
+  background: currentColor;
+  visibility: visible;
+  color: transparent;
+}
+.align span:not(.empty) {
+  margin: 0 -1px;
+  padding: 0 1px;
+}
 
-  pointer-events: none;
-  -webkit-user-select: none;
-  user-select: none;
-
-  /* for multiple */
-  white-space: pre-wrap;
+.align span[part="trailer"] {
+  color: currentColor;
+  background: transparent;
 }
 
 </style>
-<div id="holder">
-  <textarea id="textarea"></textarea>
-  <div id="render"></div>
-</div>
-`;
-    this._textarea = root.getElementById('textarea');
-    this._textarea.value = this.getAttribute('value');
+<div id="holder"></div>
+    `;
 
-    const render = root.getElementById('render');
-    this._controller = advancedInput.upgrade(this._textarea, render);
-    this._controller.suggest = this.getAttribute('suggest');
+    return t.content.cloneNode(true);
+  }
 
-    this._textarea.addEventListener(advancedInput.event.select, this._select.bind(this));
-    this._textarea.addEventListener(advancedInput.event.nav, this._nav.bind(this));
+})();
 
-    this.addEventListener('click', (ev) => {
-      if (!ev.defaultPrevented) {
-        this._textarea.focus();
+
+export const eventNames = Object.seal({
+  change: '-adv-change',
+  select: '-adv-select',
+  nav: '-adv-nav',
+  spaceKey: '-adv-spaceKey',
+});
+
+
+export class AdvancedInputElement extends HTMLElement {
+  _controller;
+
+  static get observedAttributes() {
+    return ['value', 'trailer'];
+  }
+
+  constructor() {
+    super();
+
+    /** @type {(change: boolean) => void} */
+    const update = (change) => {
+      if (change) {
+        this.dispatchEvent(new CustomEvent(eventNames.change));
       }
+      this.dispatchEvent(new CustomEvent(eventNames.select));
+    };
+
+    /** @type {(name: string) => (detail: any) => boolean} */
+    const buildDispatchHandler = (name) => {
+      return (detail) => {
+        const event = new CustomEvent(name, { detail });
+        this.dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+    };
+
+    const controller = build({
+      update,
+      nav: buildDispatchHandler(eventNames.nav),
+      spaceKey: buildDispatchHandler(eventNames.spaceKey),
     });
+
+    this._controller = controller;
+
+    const root = this.attachShadow({ mode: 'open' });
+    root.append(lazyTemplate());
+
+    const holder = /** @type {HTMLElement} */ (root.lastElementChild);
+    holder.append(this._controller.fragment);
+  }
+
+  get controller() {
+    return this._controller;
   }
 
   get value() {
-    return this._textarea.value;
+    return this._controller.value;
   }
 
   set value(v) {
-    this._textarea.value = v;
+    this._controller.value = v;
   }
 
-  get suggest() {
-    return this._controller.suggest;
+  get trailer() {
+    return this._controller.trailer;
   }
 
-  set suggest(v) {
-    this._controller.suggest = v;
+  set trailer(v) {
+    this._controller.trailer = v;
   }
 
-  get multiple() {
-    return this.hasAttribute('multiple');
+  get multiline() {
+    return this._controller.multiline;
   }
 
-  set multiple(v) {
-    if (v) {
-      this.setAttribute('multiple', this.getAttribute('multiple') || '');
-    } else {
-      this.removeAttribute('multiple');
-    }
+  set multiline(v) {
+    this._controller.multiline = v;
   }
 
-  suggestMatch(cand) {
-    return this._controller.autocompleteMatch(cand);
+  focus() {
+    super.focus();
+    this._controller.focus();
   }
 
-  _updateInputType() {
-    // TODO(samthor): make this work
-  }
-
-  _select(ev) {
-    this.dispatchEvent(new CustomEvent(ev.type));
-
-    if (this._textarea.selectionStart !== this._textarea.selectionEnd) {
-      this._controller.mark('highlight');
-      return;  // ignore range selection
-    }
-
-    const value = this._textarea.value;
-    const anchor = this._textarea.selectionStart;
-    const leftMatch = leftRe.exec(value.substr(0, anchor));
-    const rightMatch = rightRe.exec(value.substr(anchor));
-
-    const start = anchor - leftMatch[0].length;
-    const end = anchor + rightMatch[0].length;
-
-    this._controller.mark('highlight', {start, end});
-  }
-
-  _nav(ev) {
-    ev.preventDefault();
-  }
-
-  mark(className, target) {
-    this._controller.mark(className, target);
-  }
-
+  /**
+   * @param {string} name
+   * @param {string?} oldValue
+   * @param {string?} newValue
+   */
   attributeChangedCallback(name, oldValue, newValue) {
     switch (name) {
-      case 'suggest':
-        this._controller.suggest = newValue;
-        break;
       case 'value':
-        this._textarea.value = newValue;
+        this.value = newValue ?? '';
+        break;
+
+      case 'trailer':
+        this.trailer = newValue ?? '';
         break;
     }
   }
 };
+
+
+customElements.define('advanced-input', AdvancedInputElement);

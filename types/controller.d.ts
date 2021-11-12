@@ -15,13 +15,14 @@ export interface AdvancedInputController {
   // readonly selectionEndLine: number;
   readonly selectionDirection: typeof HTMLTextAreaElement.prototype.selectionDirection;
 
-  mark(name: string, annotation?: {start: number, end: number}): void;
+  mark(name: string, annotation?: { start: number, end: number }): void;
+  find(name: string): { start: number, end: number } | undefined;
 
   multiline: boolean;
 
   replaceWith(handler: (was: string) => string, range?: { start: number, end: number }): void;
 
-  cursor(): {x: number, y: number};
+  cursor(): { x: number, y: number };
 
   focus(): void;
 
@@ -44,7 +45,7 @@ export interface Meta {
 
 
 export interface MetaDir extends Meta {
-  dir: -1|1;
+  dir: -1 | 1;
 }
 
 

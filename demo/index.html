@@ -1,265 +1,32 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <style>
-@import url('https://fonts.googleapis.com/css?family=Lato:400,700');
-
-body {
-  padding: 0;
-}
-
-.holder {
-  background: #eee;
-  display: flex;
-  justify-content: stretch;
-  position: relative;
-  padding: 2px;
-
-  width: 200px;
-  font-family: 'Lato', 'Roboto', sans-serif;
-  font-size: 30px;
-  line-height: 56px;
-  padding-right: 16px;
-  font-variant-ligatures: none;
-
-  flex-wrap: wrap;
-  overflow: hidden;
-}
-
-.holder .input {
-  display: block;
-  font: inherit;
-  flex-grow: 1;
-  background: transparent;
-  border: none;
-  text-indent: 12px;
-  padding: 0;
-  z-index: 1;
-  width: inherit;
-  resize: none;
-}
-
-.holder .input:focus {
-  outline: none;
-}
-.holder .focus {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  opacity: 0;
-  border: 2px solid red;
-  z-index: 2;
-  pointer-events: none;
-}
-.holder .input:focus ~ .focus {
-  opacity: 1;
-}
-
-.holder .render {
-  background: #fff;
-  text-indent: 12px;
-  will-change: transform;
-  pointer-events: none;
-  user-select: none;
-  white-space: pre;
-}
-.holder textarea ~ .render {
-  overflow-wrap: break-word;
-}
-.holder .render .autocomplete {
-  opacity: 0.5;
-}
-
-.holder .align {
-  position: absolute;
-  z-index: -1;
-  width: 100%;
-  word-break: break-word;  /* for textarea, but safe otherwise */
-  visibility: hidden;
-}
-
-.holder .align > span {
-  box-sizing: border-box;
-  visibility: visible;
-}
-
-.holder .align > span.selected:not(:empty) {
-  background: #ccc;
-  margin: -2px -1px;
-  padding: 2px 1px;
-  border-radius: 2px;
-  opacity: 0.7;
-  top: 12px;
-  bottom: 12px;
-  color: transparent;
-}
-
-  </style>
-</head>
-<body>
-
-<script type="module">
-
-  const holder = document.createElement('div');
-  holder.className = 'holder';
-  document.body.append(holder);
-
-  const input = document.createElement('input');
-  input.className = 'input';
-  holder.append(input);
-  input.value = 'This is a very 🍻 long string for testing that contains stuff and emoji.';
-  input.value = 'x he';
-
-  const focus = document.createElement('div');
-  focus.className = 'focus';
-  holder.append(focus);
-
-  const target = document.createElement('div');
-  target.className = 'render';
-  holder.append(target);
-
-  import * as advancedInput from '../index.js';
-  input.setSelectionRange(0, 0);  // nb. causes Safari to focus input
-  const controller = advancedInput.upgrade(input, target);
-
-  input.addEventListener(advancedInput.event.space, (ev) => {
-    console.info('got space autocomplete', ev.detail);
-  });
-  input.addEventListener(advancedInput.event.nav, (ev) => {
-    console.info('got nav', ev.detail);
-    ev.preventDefault();
-  });
-  input.addEventListener(advancedInput.event.select, (ev) => {
-    console.info('got select', input.selectionStart, input.value.substring(input.selectionStart, input.selectionEnd));
-    ev.preventDefault();
-  });
-
-  document.getElementById('update').addEventListener('click', (ev) => {
-    const word = document.getElementById('content').value;
-    const l = input.value.length;
-    controller.replace(word);
-  });
-  document.getElementById('update-start').addEventListener('click', (ev) => {
-    const word = document.getElementById('content').value;
-    const l = input.value.length;0
-    controller.replace(word, {start: 0, end: 3});
-  });
-
-  document.getElementById('select-all').addEventListener('click', (ev) => {
-    // TODO(samthor): This is just ignored/reset by Chrome.
-    // const prev = document.activeElement;
-//    input.focus();
-//input.selectionStart =
-input.selectionStart = 0;
-input.selectionEnd = 3;
-//    input.setSelectionRange(0, 3);
-    // prev.focus();
-  });
-
-  window.input = input;
-  controller.suggest = 'hello';
-
-  const simpleInput = document.createElement('input');
-  const button = document.createElement('button');
-  button.textContent = 'stuff';
-
-  document.body.append(simpleInput, button);
-
-button.onclick = () => {
-  simpleInput.focus();
-  window.setTimeout(() => {
-    console.info('selectionStart', 0);
-    simpleInput.selectionStart = 3;
-    simpleInput.selectionEnd = 4;
-  }, 3000);
-};
-
-</script>
-
-<button id="select-all">Select 0-3</button>
-<button id="update">Write text</button>
-<button id="update-start">Write at 0-3</button>
-<input type="text" id="content" placeholder="Text to write" value="Test value" autofocus />
-
-<p>Misc test that could be selected</p>
-
-<script type="module">
-  import AdvancedInputElement from '../element.js';
-
-  customElements.define('advanced-input', AdvancedInputElement);
-</script>
+<script type="module" src="index.js"></script>
 <style>
-advanced-input {
-  font-family: 'Lato', 'Roboto', sans-serif;
-  font-size: 30px;
-  line-height: 42px;
-  padding: 6px 0;
-  width: 100%;
-  box-sizing: border-box;
-
-  background: #eee;
-  border-radius: 6px;
-  position: relative;
-}
-advanced-input[multiple] {
-  padding: 6px 12px;
-}
-advanced-input:focus-within::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border: 2px solid red;
-  border-radius: inherit;
-  pointer-events: none;
-}
+  advanced-input::part(selected) {
+    background: blue;
+  }
+  advanced-input::part(mark-highlight) {
+    background: red;
+  }
+  advanced-input {
+    width: 400px;
+    box-shadow: 0 0 2px red;
+    display: block;
+    color: #111;
+  }
+  body {
+    font-family: Segoe UI,system-ui,-apple-system,sans-serif;
+  }
 </style>
 
 
-<advanced-input multiple id="email"></advanced-input>
+<button>Hello</button>
 
-<script type="module">
-  import * as advancedInput from '../index.js';
+<br />
+<br />
 
-  const cands = [
-    'Made with Custom Elements',
-    'See you later',
-    'Thanks for your email',
-    'Emojityper is the best 😂',
-    'omw',
-  ];
+<advanced-input value="Test"></advanced-input>
 
-  const email = document.getElementById('email');
-  email.addEventListener(advancedInput.event.select, (ev) => {
-    // FIXME: probably pretty slow, should settle and then eval
-    let best = null;
-    let bestValue = -1;
-    for (const cand of cands) {
-      const match = email.suggestMatch(cand);
-      const adjusted = match / cand.length;
-      if (match && adjusted > bestValue && match >= Math.sqrt(cand.length)) {
-        best = cand;
-        bestValue = adjusted;
-      }
-    }
-    email.suggest = best;
-  });
+<label>
+  <input type="checkbox" id="control-multiline" /> Multiline
+</label>
 
-  email.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Tab' && email.suggest) {
-      const match = email.suggestMatch(email.suggest);
-      email.value = email.value.trimRight() + email.suggest.substr(match);
-      email.suggest = null;
-      ev.preventDefault();
-    }
-  }, {capture: true});
-
-</script>
-
-</body>
+<input id="control-trailer" placeholder="Trailer content" />

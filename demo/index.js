@@ -1,4 +1,4 @@
-import AdvancedInputElement, { eventNames } from './element.js';
+import { AdvancedInputElement, eventNames } from '../element.js';
 
 const el = /** @type {AdvancedInputElement} */ (document.querySelector('advanced-input'));
 

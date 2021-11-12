@@ -27,6 +27,7 @@ export function build(callbacks) {
   renderNode.setAttribute('aria-hidden', 'true');
 
   const alignHolderNode = document.createElement('div');
+  alignHolderNode.className = 'aligner';
   alignHolderNode.setAttribute('aria-hidden', 'true');
 
   let selectionRangeElement = document.createElement('span');
@@ -93,7 +94,7 @@ export function build(callbacks) {
             // TODO: We don't "fix" bad input right now, because it kills the undo/redo stack.
           }
         }
-        renderNode.textContent = textarea.value + state.trailer;
+        renderNode.textContent = textarea.value + '\u200b' + state.trailer;
         pendingTrailerChange = false;
         viewportChangeHint();
         userAnnotations.clear();
@@ -139,7 +140,7 @@ export function build(callbacks) {
 
       // This might happen as part of the callback, even though it wasn't reset.
       if (pendingTrailerChange) {
-        renderNode.textContent = textarea.value + state.trailer;
+        renderNode.textContent = textarea.value + '\u200b' + state.trailer;
         pendingTrailerChange = false;
         viewportChangeHint();
       }
@@ -157,7 +158,7 @@ export function build(callbacks) {
           start: state.value.length,
           end: state.value.length,
           name: 'trailer',
-          text: state.trailer,
+          text: '\u200b' + state.trailer,
         };
         annotations.push(trailerAnnotation);
       }
@@ -365,6 +366,11 @@ export function build(callbacks) {
       if (!duringContentChangeHint) {
         contentChangeHint();
       }
+    },
+
+    find(name) {
+      const out = userAnnotations.get(name);
+      return out ? { ...out } : undefined;
     },
 
     get multiline() {
