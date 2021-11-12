@@ -40,6 +40,7 @@ export function build(callbacks) {
     selectionDirection: 'none',
 
     multiline: false,
+    trailer: '',
   };
 
   const viewportChangeHint = () => {
@@ -59,6 +60,7 @@ export function build(callbacks) {
 
   let duringContentChangeHint = false;
   let pendingMarkupChange = false;
+  let pendingTrailerChange = false;
 
   const contentEvents = 'change keydown keypress input value select click contextmenu mousedown touchstart';
   const contentChangeHint = dedupListener(textarea, contentEvents, (events) => {
@@ -79,7 +81,8 @@ export function build(callbacks) {
             // TODO: We don't "fix" bad input right now, because it kills the undo/redo stack.
           }
         }
-        renderNode.textContent = textarea.value;
+        renderNode.textContent = textarea.value + state.trailer;
+        pendingTrailerChange = false;
         viewportChangeHint();
         userAnnotations.clear();
       }
@@ -111,6 +114,13 @@ export function build(callbacks) {
       // reconcile the underlying <textarea> after this.
       callbacks.update?.(valueChange);
 
+      // This might happen as part of the callback, even though it wasn't reset.
+      if (pendingTrailerChange) {
+        renderNode.textContent = textarea.value + state.trailer;
+        pendingTrailerChange = false;
+        viewportChangeHint();
+      }
+
       const low = Math.min(state.selectionStart, state.selectionEnd);
       const high = Math.max(state.selectionStart, state.selectionEnd);
 
@@ -122,17 +132,28 @@ export function build(callbacks) {
       const selectionRender = renderAnnotation(state.value, selectionAnnotation);
 
       if (valueChange || pendingMarkupChange) {
+        pendingMarkupChange = false;
+
+        /** @type {(controllerTypes.Annotation & {text?: string})[]} */
         const annotations = [...userAnnotations.values()];
+
+        if (state.trailer) {
+          const trailerAnnotation = {
+            start: state.value.length,
+            end: state.value.length,
+            name: 'trailer',
+            text: state.trailer,
+          };
+          annotations.push(trailerAnnotation);
+        }
 
         alignHolderNode.textContent = '';
         alignHolderNode.append(selectionRender.align);
 
-        annotations.forEach((annotation) => {
-          const { align } = renderAnnotation(state.value, annotation);
+        annotations.forEach((r) => {
+          const { align } = renderAnnotation(state.value, r, r.text);
           alignHolderNode.append(align);
         });
-        pendingMarkupChange = false;
-
       } else {
         // We can just re-render things that are effected by cursor moves.
         selectionRangeElement?.parentElement?.replaceWith(selectionRender.align);
@@ -170,6 +191,12 @@ export function build(callbacks) {
           event.preventDefault();
         }
         return;
+
+      case ' ':
+        if (callbacks.spaceKey?.(buildMeta(event))) {
+          event.preventDefault();
+        }
+        return;
     }
 
     // Don't try to detect a nav in a bunch of cases: shift for selection, or already have selection.
@@ -192,7 +219,7 @@ export function build(callbacks) {
             return;  // nothing to do, not on line=0
           }
         }
-        if (callbacks.nav?.(-1)) {
+        if (callbacks.nav?.(-1, buildMeta(event))) {
           event.preventDefault();
         }
         break;
@@ -208,7 +235,7 @@ export function build(callbacks) {
             return;  // not on last line
           }
         }
-        if (callbacks.nav?.(+1)) {
+        if (callbacks.nav?.(+1, buildMeta(event))) {
           event.preventDefault();
         }
         break;
@@ -221,7 +248,7 @@ export function build(callbacks) {
    */
   const replaceWith = (handler, range) => {
     const wasSelection = (!range);
-    range = range ?? { start: state.selectionStart, end: state.selectionEnd }; 
+    range = range ?? { start: state.selectionStart, end: state.selectionEnd };
 
     const previousText = state.value.substr(range.start, range.end - range.start);
     const updatedText = handler(previousText);
@@ -260,6 +287,18 @@ export function build(callbacks) {
     replaceWith(() => paste);
   });
 
+  // Non-deduped textInput handler, for space on mobile browsers ('dreaded keycode 229').
+  // Note that this will generate multiple events.
+  textarea.addEventListener('textInput', (event) => {
+    const { data } = /** @type {{data?: string}} */ (event);
+    if (data !== ' ') {
+      return;
+    }
+    if (callbacks.spaceKey?.(buildMeta(event))) {
+      event.preventDefault();
+    }
+  });
+
   const fragment = document.createDocumentFragment();
   fragment.append(textarea, renderNode, alignHolderNode);
 
@@ -291,12 +330,8 @@ export function build(callbacks) {
     },
 
     mark(name, annotation) {
-      if (name === 'selection') {
-        throw new Error(`can't update 'selection'`);
-      }
-
       if (annotation) {
-        userAnnotations.set(name, { name, ...annotation });
+        userAnnotations.set(name, { name: `mark-${name}`, ...annotation });
       } else if (userAnnotations.has(name)) {
         userAnnotations.delete(name);
       } else {
@@ -317,6 +352,28 @@ export function build(callbacks) {
       state.multiline = v;
     },
 
+    get trailer() {
+      return state.trailer;
+    },
+
+    set trailer(v) {
+      state.trailer = v;
+
+      pendingTrailerChange = true;
+      pendingMarkupChange = true;
+      if (!duringContentChangeHint) {
+        contentChangeHint();
+      }
+    },
+
+    get placeholder() {
+      return textarea.placeholder;
+    },
+
+    set placeholder(v) {
+      textarea.placeholder = v;
+    },
+
     replaceWith,
 
   };
@@ -326,16 +383,24 @@ export function build(callbacks) {
 /**
  * @param {string} value
  * @param {controllerTypes.Annotation} annotation
+ * @param {string=} text
  * @return {{ align: HTMLDivElement, range: HTMLSpanElement }}
  */
-function renderAnnotation(value, { start, end, name }) {
+function renderAnnotation(value, { start, end, name }, text) {
   const align = document.createElement('div');
   align.className = 'align text';
   align.textContent = value.substr(0, start);  // include trailing space
 
+  const annotationValue = text ?? value.substr(start, end - start);
+
   const range = document.createElement('span');
   range.setAttribute('part', name);
-  range.textContent = value.substr(start, end - start) + '\u200b';
+  range.textContent = annotationValue + '\u200b';
+
+  if (!annotationValue) {
+    range.className = 'empty';
+  }
+
   align.appendChild(range);
 
   return { align, range };
@@ -404,4 +469,16 @@ function duringDrag(target, handler) {
     target.addEventListener('pointermove', pointerMoveHandler);
   });
 
+}
+
+
+/**
+ * @param {Event} event
+ * @return {controllerTypes.Meta}
+ */
+function buildMeta(event) {
+  if (event instanceof KeyboardEvent) {
+    return event;
+  }
+  return { shiftKey: false, metaKey: false, ctrlKey: false, altKey: false };
 }

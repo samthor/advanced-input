@@ -76,6 +76,7 @@ textarea {
   position: absolute;
   inset: 0;
   width: 100%;
+  z-index: -1;
 }
 .align span {
   -webkit-box-decoration-break: clone;
@@ -83,14 +84,16 @@ textarea {
   border-radius: 2px;
   background: currentColor;
   visibility: visible;
+  color: transparent;
 }
-align span:not(:empty) {
+.align span:not(.empty) {
   margin: 0 -1px;
   padding: 0 1px;
 }
-align span:empty {
-  /* fixes zero-width el */
-  display: inline-block;
+
+.align span[part="trailer"] {
+  color: currentColor;
+  background: transparent;
 }
 
 </style>
@@ -108,7 +111,7 @@ export default class AdvancedInputElement extends HTMLElement {
   _controller;
 
   static get observedAttributes() {
-    return ['suggest', 'value'];
+    return ['value', 'placeholder'];
   }
 
   constructor() {
@@ -126,6 +129,13 @@ export default class AdvancedInputElement extends HTMLElement {
 
         }
       },
+
+      spaceKey(meta) {
+        if (meta.shiftKey) {
+          return true;
+        }
+        return false;
+      }
 
     });
 
@@ -152,6 +162,30 @@ export default class AdvancedInputElement extends HTMLElement {
 
   set value(v) {
     this._controller.value = v;
+  }
+
+  get trailer() {
+    return this._controller.trailer;
+  }
+
+  set trailer(v) {
+    this._controller.trailer = v;
+  }
+
+  get placeholder() {
+    return this._controller.placeholder;
+  }
+
+  set placeholder(v) {
+    this._controller.placeholder = v;
+  }
+
+  get multiline() {
+    return this._controller.multiline;
+  }
+
+  set multiline(v) {
+    this._controller.multiline = v;
   }
 
   // get suggest() {
@@ -197,7 +231,11 @@ export default class AdvancedInputElement extends HTMLElement {
   attributeChangedCallback(name, oldValue, newValue) {
     switch (name) {
       case 'value':
-        this._controller.value = newValue ?? '';
+        this.value = newValue ?? '';
+        break;
+
+      case 'placeholder':
+        this.placeholder = newValue ?? '';
         break;
     }
   }

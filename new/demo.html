@@ -1,5 +1,21 @@
 <script type="module">
   import './element.js';
+
+  const el = document.querySelector('advanced-input');
+
+  const controlMultiline = document.getElementById('control-multiline');
+  controlMultiline.addEventListener('change', () => {
+    el.multiline = controlMultiline.checked;
+  });
+
+  const controlTrailer = document.getElementById('control-trailer');
+  controlTrailer.addEventListener('change', () => {
+    el.trailer = controlTrailer.value;
+  });
+  controlTrailer.addEventListener('input', () => {
+    el.trailer = controlTrailer.value;
+  });
+
 </script>
 <style>
   advanced-input::part(selected) {
@@ -26,4 +42,8 @@
 
 <advanced-input value="Test"></advanced-input>
 
-<input placeholder="Regular input" />
+<label>
+  <input type="checkbox" id="control-multiline" /> Multiline
+</label>
+
+<input id="control-trailer" placeholder="Trailer content" />

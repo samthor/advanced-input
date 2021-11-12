@@ -5,6 +5,10 @@ export interface AdvancedInputController {
 
   value: string;
 
+  trailer: string;
+
+  placeholder: string;
+
   readonly selectionStart: number;
   readonly selectionEnd: number;
   // readonly selectionStartLine: number;
@@ -27,7 +31,16 @@ export interface Annotation {
 }
 
 
+export interface Meta {
+  shiftKey: boolean;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  altKey: boolean;
+}
+
+
 export interface AdvancedInputCallbacks {
-  nav(dir: -1|1): boolean;
+  nav(dir: -1|1, meta: Meta): boolean;
   update(change: boolean): void;
+  spaceKey(meta: Meta): boolean;
 }
