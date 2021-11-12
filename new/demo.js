@@ -48,3 +48,5 @@ el.addEventListener(eventNames.select, (event) => {
 
   controller.mark('highlight', findMark());
 });
+
+el.focus();

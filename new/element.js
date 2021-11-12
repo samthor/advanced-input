@@ -34,6 +34,7 @@ textarea {
   background: transparent;
   overflow: hidden;
   resize: none;  /* in case we are textarea */
+  color: currentColor;
 }
 textarea:focus {
   outline: none;
@@ -44,12 +45,6 @@ textarea::selection {
 textarea::-moz-selection {
   background: transparent;
 }
-
-/* TODO: just for now */
-textarea {
-  box-shadow: 0 0 4px red;
-}
-
 .text {
   white-space: pre-wrap;
   white-space: break-spaces;
@@ -177,6 +172,11 @@ export default class AdvancedInputElement extends HTMLElement {
 
   set multiline(v) {
     this._controller.multiline = v;
+  }
+
+  focus() {
+    super.focus();
+    this._controller.focus();
   }
 
   /**

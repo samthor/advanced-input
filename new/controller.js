@@ -16,6 +16,12 @@ export function build(callbacks) {
   const textarea = document.createElement('textarea');
   textarea.className = 'text';
 
+  // TODO: for now, treat as totally unmanaged
+  textarea.setAttribute('autocapitalize', 'off');
+  textarea.setAttribute('autocomplete', 'off');
+  textarea.setAttribute('autocorrect', 'off');
+  textarea.setAttribute('spellcheck', 'false');
+
   const renderNode = document.createElement('div');
   renderNode.className = 'text sizer';
   renderNode.setAttribute('aria-hidden', 'true');
@@ -402,6 +408,10 @@ export function build(callbacks) {
         x: (innerRect.x - outerRect.x) + (innerRect.width / 2),
         y: (innerRect.y - outerRect.y) + (innerRect.height / 2),
       };
+    },
+
+    focus() {
+      textarea.focus();
     },
 
     replaceWith,

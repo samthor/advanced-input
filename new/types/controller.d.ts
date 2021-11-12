@@ -23,6 +23,8 @@ export interface AdvancedInputController {
 
   cursor(): {x: number, y: number};
 
+  focus(): void;
+
 }
 
 
