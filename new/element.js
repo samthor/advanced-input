@@ -56,8 +56,8 @@ textarea {
 }
 
 .text {
-  white-space: break-spaces;
   white-space: pre-wrap;
+  white-space: break-spaces;
   overflow-wrap: break-word;
 }
 .text:not(textarea) {
@@ -130,6 +130,7 @@ export default class AdvancedInputElement extends HTMLElement {
     });
 
     this._controller = controller;
+    window._controller = controller;
 
     const root = this.attachShadow({ mode: 'open' });
     root.append(lazyTemplate());

@@ -11,6 +11,19 @@ export interface AdvancedInputController {
   // readonly selectionEndLine: number;
   readonly selectionDirection: typeof HTMLTextAreaElement.prototype.selectionDirection;
 
+  mark(name: string, annotation?: {start: number, end: number}): void;
+
+  multiline: boolean;
+
+  replaceWith(handler: (was: string) => string, range?: { start: number, end: number }): void;
+
+}
+
+
+export interface Annotation {
+  start: number,
+  end: number,
+  name: string,
 }
 
 

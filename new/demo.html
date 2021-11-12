@@ -5,9 +5,13 @@
   advanced-input::part(selected) {
     background: blue;
   }
+  advanced-input::part(butt) {
+    background: red;
+  }
   advanced-input {
-    padding: 32px;
+    width: 400px;
     box-shadow: 0 0 2px red;
+    display: block;
   }
   body {
     font-family: Segoe UI,system-ui,-apple-system,sans-serif;
@@ -20,5 +24,6 @@
 <br />
 <br />
 
-<advanced-input style="max-width: 120px; display: block;" value="Test"></advanced-input>
+<advanced-input value="Test"></advanced-input>
 
+<input placeholder="Regular input" />
