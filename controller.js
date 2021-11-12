@@ -91,7 +91,8 @@ export function build(callbacks) {
         if (!state.multiline) {
           const v = textarea.value.replace(newlineRegexp, ' ');
           if (v !== textarea.value) {
-            // TODO: We don't "fix" bad input right now, because it kills the undo/redo stack.
+            // TODO: We don't "fix" bad values, because it kills the undo/redo stack.
+            // Instead, there's a paste/keydown handler for the likely cases of invalid contents.
           }
         }
         renderNode.textContent = textarea.value + '\u200b' + state.trailer;
