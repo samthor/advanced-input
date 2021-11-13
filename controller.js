@@ -22,9 +22,13 @@ export function build(callbacks) {
   textarea.setAttribute('autocorrect', 'off');
   textarea.setAttribute('spellcheck', 'false');
 
+  const renderHolderNode = document.createElement('div');
+  renderHolderNode.className = 'aligner';
+
   const renderNode = document.createElement('div');
   renderNode.className = 'text sizer';
   renderNode.setAttribute('aria-hidden', 'true');
+  renderHolderNode.append(renderNode);
 
   const alignHolderNode = document.createElement('div');
   alignHolderNode.className = 'aligner';
@@ -74,12 +78,13 @@ export function build(callbacks) {
   let duringContentChangeHint = false;
   let pendingMarkupChange = false;
   let pendingTrailerChange = false;
+  let pendingValueChange = false;
 
   const contentEvents = 'change keydown keypress input value select click contextmenu mousedown touchstart';
   const contentChangeHint = dedupListener(textarea, contentEvents, (events) => {
     duringContentChangeHint = true;
     try {
-      const valueChange = (state.value !== textarea.value);
+      const valueChange = (state.value !== textarea.value) || pendingValueChange;
       const selectionChange = (state.selectionStart !== textarea.selectionStart ||
         state.selectionEnd !== textarea.selectionEnd);
       const anyChange = valueChange || selectionChange || pendingMarkupChange;
@@ -88,6 +93,11 @@ export function build(callbacks) {
         return;
       }
       if (valueChange) {
+        if (!pendingValueChange) {
+          userAnnotations.clear();   // change from user in browser, not cleared already :shrug:
+        }
+        pendingValueChange = false;
+
         if (!state.multiline) {
           const v = textarea.value.replace(newlineRegexp, ' ');
           if (v !== textarea.value) {
@@ -98,7 +108,6 @@ export function build(callbacks) {
         renderNode.textContent = textarea.value + '\u200b' + state.trailer;
         pendingTrailerChange = false;
         viewportChangeHint();
-        userAnnotations.clear();
       }
 
       const rangeSelection = (textarea.selectionEnd > textarea.selectionStart);
@@ -266,14 +275,19 @@ export function build(callbacks) {
 
   /**
    * @param {(was: string) => string} handler
-   * @param {{start: number, end: number}=} range
+   * @param {controllerTypes.Range=} range
+   * @return {controllerTypes.Range}
    */
   const replaceWith = (handler, range) => {
     const wasSelection = (!range);
     range = range ?? { start: state.selectionStart, end: state.selectionEnd };
 
     const previousText = state.value.substr(range.start, range.end - range.start);
-    const updatedText = handler(previousText);
+    let updatedText = handler(previousText);
+    if (!state.multiline) {
+      updatedText = updatedText.replace(newlineRegexp, '');
+    }
+
     const expected = state.value.substr(0, range.start) + updatedText + state.value.substr(range.end);
 
     textarea.focus();
@@ -286,13 +300,33 @@ export function build(callbacks) {
     } else {
       // execCommand didn't work, is unsupported in HTML form elements (e.g. Firefox)
       textarea.value = expected;
-      textarea.dispatchEvent(new CustomEvent('change'));
+      textarea.dispatchEvent(new Event('change'));
+    }
+    state.value = expected;
+
+    const updatedRange = {
+      start: range.start,
+      end: range.start + updatedText.length,
+    };
+
+    const updatedSelectionStart = drift(range, updatedText, state.selectionStart);
+    const updatedSelectionEnd = drift(range, updatedText, state.selectionEnd);
+
+    state.selectionStart = updatedSelectionStart;
+    state.selectionEnd = updatedSelectionEnd;
+
+    textarea.setSelectionRange(updatedSelectionStart, updatedSelectionEnd);
+
+    // TODO: this is subtly different
+    if (wasSelection) {
+      console.warn('replacing selectino');
+      //      textarea.setSelectionRange(state.selectionStart, updatedText.length + state.selectionStart);
     }
 
-    if (wasSelection) {
-      textarea.setSelectionRange(state.selectionStart, updatedText.length + state.selectionStart);
-    }
-    // TODO: restore cursor?
+    pendingValueChange = true;
+    userAnnotations.clear();
+
+    return updatedRange;
   };
 
   // If this is a singleline, then rewrites pastes with newline characters.
@@ -319,13 +353,15 @@ export function build(callbacks) {
     if (data !== ' ') {
       return;
     }
-    if (callbacks.spaceKey?.(buildMeta(event))) {
-      event.preventDefault();
-    }
+
+    // TODO: detect on mobile only (fires on desktop too)? merge with real event?
+    // if (callbacks.spaceKey?.(buildMeta(event))) {
+    //   event.preventDefault();
+    // }
   });
 
   const fragment = document.createDocumentFragment();
-  fragment.append(textarea, renderNode, alignHolderNode);
+  fragment.append(textarea, renderHolderNode, alignHolderNode);
 
   return {
 
@@ -335,11 +371,21 @@ export function build(callbacks) {
       if (!state.multiline) {
         v = v.replace(newlineRegexp, '');
       }
+      state.value = v;
       textarea.value = v;
+      textarea.dispatchEvent(new Event('change'));
+      pendingValueChange = true;
+
+      // Browsers should set this to the end, but just in case it didn't...
+      textarea.setSelectionRange(v.length, v.length);
+      state.selectionStart = v.length;
+      state.selectionEnd = v.length;
+
+      userAnnotations.clear();
     },
 
     get value() {
-      return textarea.value;
+      return state.value;
     },
 
     get selectionStart() {
@@ -354,14 +400,14 @@ export function build(callbacks) {
       return state.selectionDirection;
     },
 
-    mark(name, annotation) {
-      if (annotation) {
+    mark(name, range) {
+      if (range) {
         const prev = userAnnotations.get(name);
-        if (prev && prev.start === annotation.start && prev.end === annotation.end) {
+        if (prev && prev.start === range.start && prev.end === range.end) {
           return;
         }
 
-        userAnnotations.set(name, { name: `mark-${name}`, ...annotation });
+        userAnnotations.set(name, { name: `mark-${name}`, ...range });
       } else if (userAnnotations.has(name)) {
         userAnnotations.delete(name);
       } else {
@@ -492,6 +538,23 @@ function dedupListener(target, events, handler) {
   allEvents.forEach((name) => target.addEventListener(name, eventHandler, passiveOpt));
 
   return eventHandler;
+}
+
+
+/**
+ * @param {controllerTypes.Range} range
+ * @param {string} text
+ * @param {number} where
+ */
+function drift(range, text, where) {
+  if (where >= range.end) {
+    where = where - (range.end - range.start) + text.length;  // after
+  } else if (where <= range.start + text.length) {
+    // during, retain
+  } else {
+    where = range.start + text.length;  // during but after length, go to end
+  }
+  return where;
 }
 
 

@@ -3,6 +3,12 @@ export interface AdvancedInputController {
 
   readonly fragment: DocumentFragment;
 
+  /**
+   * The current value of this controller. User changes are detected in a `requestAnimationFrame`
+   * call, so it may be behind user-visible changes.
+   *
+   * Setting this value clears all annotations immediately.
+   */
   value: string;
 
   trailer: string;
@@ -15,12 +21,18 @@ export interface AdvancedInputController {
   // readonly selectionEndLine: number;
   readonly selectionDirection: typeof HTMLTextAreaElement.prototype.selectionDirection;
 
-  mark(name: string, annotation?: { start: number, end: number }): void;
-  find(name: string): { start: number, end: number } | undefined;
+  mark(name: string, annotation?: Range): void;
+  find(name: string): Range | undefined;
 
   multiline: boolean;
 
-  replaceWith(handler: (was: string) => string, range?: { start: number, end: number }): void;
+  /**
+   * Replaces the currently selected range (or the passed range) with an updated value. The handler
+   * is passed the previous value that is being replaced.
+   *
+   * This clears all annotations immediately.
+   */
+  replaceWith(handler: (was: string) => string, range?: Range): Range;
 
   cursor(): { x: number, y: number };
 
@@ -30,10 +42,13 @@ export interface AdvancedInputController {
 
 }
 
-
-export interface Annotation {
+export interface Range {
   start: number;
   end: number;
+}
+
+
+export interface Annotation extends Range {
   name: string;
 }
 
