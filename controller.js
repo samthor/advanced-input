@@ -92,8 +92,9 @@ export function build(callbacks) {
       if (!anyChange) {
         return;
       }
-      if (valueChange) {
-        if (!pendingValueChange) {
+      if (valueChange || pendingTrailerChange) {
+        // This condition is kind of gross but basically stops trailers changes from nuking marks.
+        if (valueChange || (!pendingValueChange && !pendingTrailerChange)) {
           userAnnotations.clear();   // change from user in browser, not cleared already :shrug:
         }
         pendingValueChange = false;
@@ -319,7 +320,6 @@ export function build(callbacks) {
 
     // TODO: this is subtly different
     if (wasSelection) {
-      console.warn('replacing selectino');
       //      textarea.setSelectionRange(state.selectionStart, updatedText.length + state.selectionStart);
     }
 
@@ -438,6 +438,9 @@ export function build(callbacks) {
     },
 
     set trailer(v) {
+      if (state.trailer === v) {
+        return;
+      }
       state.trailer = v;
 
       pendingTrailerChange = true;
@@ -492,13 +495,12 @@ export function build(callbacks) {
 function renderAnnotation(value, { start, end, name }, text) {
   const align = document.createElement('div');
   align.className = 'align text';
-  align.textContent = value.substr(0, start);  // include trailing space
 
   const range = document.createElement('span');
   range.setAttribute('part', name);
   range.textContent = text ?? value.substr(start, end - start);
 
-  align.appendChild(range);
+  align.append(value.substr(0, start), range, value.substr(end));
 
   return { align, range };
 };
@@ -594,7 +596,12 @@ function duringDrag(target, handler) {
  */
 function buildMeta(event) {
   if (event instanceof KeyboardEvent) {
-    return event;
+    return {
+      shiftKey: event.shiftKey,
+      metaKey: event.metaKey,
+      ctrlKey: event.ctrlKey,
+      altKey: event.altKey,
+    };
   }
   return { shiftKey: false, metaKey: false, ctrlKey: false, altKey: false };
 }
