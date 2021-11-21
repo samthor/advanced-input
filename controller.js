@@ -84,17 +84,17 @@ export function build(callbacks) {
   const contentChangeHint = dedupListener(textarea, contentEvents, (events) => {
     duringContentChangeHint = true;
     try {
-      const valueChange = (state.value !== textarea.value) || pendingValueChange;
+      const unexpectedValueChange = (state.value !== textarea.value);
       const selectionChange = (state.selectionStart !== textarea.selectionStart ||
         state.selectionEnd !== textarea.selectionEnd);
-      const anyChange = valueChange || selectionChange || pendingMarkupChange;
+      const anyValueChange = unexpectedValueChange || pendingValueChange || pendingMarkupChange;
 
-      if (!anyChange) {
+      if (!anyValueChange && !selectionChange) {
         return;
       }
-      if (valueChange || pendingTrailerChange) {
+      if (unexpectedValueChange || pendingTrailerChange) {
         // This condition is kind of gross but basically stops trailers changes from nuking marks.
-        if (valueChange || (!pendingValueChange && !pendingTrailerChange)) {
+        if (unexpectedValueChange || (!pendingValueChange && !pendingTrailerChange)) {
           userAnnotations.clear();   // change from user in browser, not cleared already :shrug:
         }
         pendingValueChange = false;
@@ -147,8 +147,8 @@ export function build(callbacks) {
       // Something changed, and the value may have changed. Clients can do markup again here.
       // Nothing visible on the controller is changed below (public visible state), we just
       // reconcile the underlying <textarea> after this.
-      if (selectionChange || valueChange) {
-        callbacks.update?.(valueChange);
+      if (selectionChange || anyValueChange) {
+        callbacks.update?.(anyValueChange);
 
         // This might happen as part of the callback, even though it wasn't reset.
         if (pendingTrailerChange) {
@@ -158,7 +158,7 @@ export function build(callbacks) {
         }
       }
 
-      if (!valueChange && !pendingMarkupChange) {
+      if (!anyValueChange && !pendingMarkupChange) {
         return;
       }
       pendingMarkupChange = false;
@@ -210,9 +210,7 @@ export function build(callbacks) {
         return;
 
       case 'Enter':
-        if (!state.multiline) {
-          event.preventDefault();
-        }
+        // nb. don't preventDefault, users might want to know
         return;
 
       case ' ':
@@ -222,11 +220,10 @@ export function build(callbacks) {
         return;
     }
 
-    // Don't try to detect a nav in a bunch of cases: shift for selection, or already have selection.
+    // Don't try to detect a nav in a bunch of cases.
     if (!selectionRangeElement ||
       !verticalKeys.includes(event.key) ||
       event.shiftKey ||
-      state.selectionStart !== state.selectionEnd ||
       !callbacks.nav) {
       return;
     }
@@ -269,7 +266,9 @@ export function build(callbacks) {
 
     const metaDir = { dir, ...buildMeta(event) };
     if (callbacks.nav(metaDir)) {
+      // If the nav was successful, don't emit the event.
       event.preventDefault();
+      event.stopPropagation();
     }
 
   });
@@ -296,6 +295,7 @@ export function build(callbacks) {
       textarea.setSelectionRange(range.start, range.end);
     }
 
+    // This is deprecated but we need it to support the undo/redo stack.
     if (document.execCommand('insertText', false, updatedText) && textarea.value === expected) {
       // execCommand generates 'input' event, don't dispatch
     } else {
